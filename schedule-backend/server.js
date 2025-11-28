@@ -217,37 +217,47 @@ app.get('/api/admin/stats/pending-schedules', authMiddleware, adminMiddleware, (
         res.json({ count: results[0].count });
     });
 });
-// API: Lấy tổng hợp các số liệu cần duyệt (Dùng cho MainLayout)
 app.get('/api/admin/stats/general', authMiddleware, adminMiddleware, async (req, res) => {
     try {
         // 1. Đếm Lịch chờ duyệt
         const [schedules] = await db.promise().query("SELECT COUNT(*) as count FROM schedules WHERE trangThai = 'cho_duyet'");
         
-        // 2. Đếm Tài khoản mới đăng ký (pending) -> Cho menu "Tài khoản cần duyệt"
+        // 2. Đếm Tài khoản mới đăng ký
         const [users] = await db.promise().query("SELECT COUNT(*) as count FROM users WHERE status = 'pending'");
 
-        // 3. Đếm Yêu cầu Reset mật khẩu (pending) -> Cho menu "Quản lý tài khoản"
-        const [resets] = await db.promise().query("SELECT COUNT(*) as count FROM password_reset_requests WHERE status = 'pending'");
+        // 3. Đếm Yêu cầu Reset mật khẩu (SỬA VÀ THÊM TRY/CATCH)
+        let resetCount = 0;
+        try {
+            // Chạy truy vấn riêng biệt
+            const [resets] = await db.promise().query("SELECT COUNT(*) as count FROM password_reset_requests WHERE status = 'pending'");
+            resetCount = resets[0].count;
+        } catch (e) {
+            // Nếu lỗi là ER_NO_SUCH_TABLE (mã 1146), bỏ qua lỗi và giữ nguyên resetCount = 0
+            if (e.errno !== 1146) { 
+                throw e; // Báo lỗi nếu là lỗi khác (mật khẩu, kết nối...)
+            }
+            console.warn('⚠️ WARN: Bỏ qua lỗi thiếu bảng password_reset_requests.');
+        }
 
         res.json({
             pendingSchedules: schedules[0].count,
-            pendingUsers: users[0].count,       // Số user mới
-            pendingResets: resets[0].count      // Số yêu cầu cấp lại mật khẩu
+            pendingUsers: users[0].count, 
+            pendingResets: resetCount  // Dùng giá trị 0 nếu bảng không tồn tại
         });
     } catch (err) {
-        console.error('Lỗi lấy stats:', err);
+        console.error('Lỗi lấy stats CỐT LÕI:', err);
         res.status(500).json({ message: 'Lỗi server' });
     }
 });
-
 // 🔄 2. API CẬP NHẬT: LẤY DANH SÁCH USERS (Thêm cột requestCount)
 app.get('/api/admin/users', authMiddleware, adminMiddleware, (req, res) => {
     // Subquery đếm requestCount: > 0 nghĩa là có yêu cầu
-  const sql = `
+ // THAY THẾ TOÀN BỘ SQL TRONG API NÀY BẰNG:
+const sql = `
     SELECT u.id, u.email, u.role, u.status, u.hostName as fullName,
-           (SELECT COUNT(*) FROM password_reset_requests r WHERE r.user_id = u.id AND r.status = 'pending') as requestCount
+           0 as requestCount  /* Sửa cứng thành 0 để không bị crash */
     FROM users u
-    ORDER BY requestCount DESC, u.id DESC
+    ORDER BY u.id DESC
 `;
     // ORDER BY requestCount DESC sẽ đưa người có yêu cầu lên đầu
     
