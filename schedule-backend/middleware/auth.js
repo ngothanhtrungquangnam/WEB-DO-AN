@@ -1,7 +1,7 @@
 const jwt = require('jsonwebtoken');
 
 // QUAN TRỌNG: Phải dùng cùng khóa bí mật với server.js
-const JWT_SECRET = 'YOUR_SUPER_SECRET_KEY_12345'; 
+const JWT_SECRET = process.env.JWT_SECRET || 'YOUR_SUPER_SECRET_KEY_12345';
 
 const authMiddleware = (req, res, next) => {
     // 1. Lấy token từ Header (Authorization: Bearer <token>)

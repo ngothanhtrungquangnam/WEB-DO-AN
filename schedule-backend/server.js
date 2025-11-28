@@ -11,30 +11,28 @@ const adminMiddleware = require('./middleware/admin');
 
 const app = express();
 
-const corsOptions = {
-    origin: function (origin, callback) {
-        const allowedOrigins = [
-            'https://thankful-sea-0dc589b00.3.azurestaticapps.net', // ✅ ĐÚNG: b00 không phải bd8
-            'http://localhost:3000',
-            'http://localhost:5173'
-        ];
+// const corsOptions = {
+//     origin: function (origin, callback) {
+//         const allowedOrigins = [
+//             'https://thankful-sea-0dc589b00.3.azurestaticapps.net', // ✅ ĐÚNG: b00 không phải bd8
+//             'http://localhost:3000',
+//             'http://localhost:5173'
+//         ];
         
-        if (!origin) return callback(null, true);
+//         if (!origin) return callback(null, true);
         
-        if (allowedOrigins.includes(origin)) {
-            callback(null, true);
-        } else {
-            console.warn('⚠️ CORS blocked:', origin);
-            callback(new Error('Not allowed by CORS'));
-        }
-    },
-    credentials: true,
-    methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization']
-};
-
-app.use(cors(corsOptions));
-
+//         if (allowedOrigins.includes(origin)) {
+//             callback(null, true);
+//         } else {
+//             console.warn('⚠️ CORS blocked:', origin);
+//             callback(new Error('Not allowed by CORS'));
+//         }
+//     },
+//     credentials: true,
+//     methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+//     allowedHeaders: ['Content-Type', 'Authorization']
+// };
+app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 // ✅ SỬA: Dùng environment variables thay vì hard-code
@@ -92,15 +90,22 @@ app.get('/health', (req, res) => {
 // =====================================================================================
 
 // API ĐĂNG NHẬP
-app.post('/api/login', (req, res) => {
+// API ĐĂNG NHẬP (SỬ DỤNG ASYNC/AWAIT CHUẨN MỰC)
+app.post('/api/login', async (req, res) => {
     const { email, password } = req.body;
 
-    db.query('SELECT * FROM users WHERE email = ?', [email], async (err, results) => {
-        if (err) return res.status(500).json({ message: 'Lỗi máy chủ.' });
-        if (results.length === 0) return res.status(401).json({ message: 'Email hoặc mật khẩu không đúng.' });
+    // BƯỚC 1: Xử lý lỗi bằng try/catch
+    try {
+        // ✅ SỬA: Dùng db.promise().query để có thể dùng await
+        const [results] = await db.promise().query('SELECT * FROM users WHERE email = ?', [email]);
+
+        if (results.length === 0) {
+            return res.status(401).json({ message: 'Email hoặc mật khẩu không đúng.' });
+        }
 
         const user = results[0];
 
+        // Các kiểm tra trạng thái
         if (user.status === 'pending') {
             return res.status(403).json({ message: 'Tài khoản đang chờ duyệt. Vui lòng liên hệ Admin.' });
         }
@@ -108,9 +113,13 @@ app.post('/api/login', (req, res) => {
             return res.status(403).json({ message: 'Tài khoản của bạn đã bị từ chối.' });
         }
 
+        // So sánh mật khẩu (Đã là async)
         const isMatch = await bcrypt.compare(password, user.passwordHash);
-        if (!isMatch) return res.status(401).json({ message: 'Email hoặc mật khẩu không đúng.' });
+        if (!isMatch) {
+            return res.status(401).json({ message: 'Email hoặc mật khẩu không đúng.' });
+        }
 
+        // Ký và trả Token
         const token = jwt.sign(
             { id: user.id, email: user.email, role: user.role, fullName: user.fullName, hostName: user.hostName }, 
             JWT_SECRET, 
@@ -121,15 +130,14 @@ app.post('/api/login', (req, res) => {
             message: 'Đăng nhập thành công!',
             token: token,
             user: {
-                id: user.id,
-                email: user.email,
-                role: user.role,
-                fullName: user.fullName,
-                status: user.status,
-                hostName: user.hostName
+                id: user.id, email: user.email, role: user.role, fullName: user.fullName, status: user.status, hostName: user.hostName
             }
         });
-    });
+    } catch (err) {
+        // Xử lý lỗi nếu DB bị lỗi Promise
+        console.error('❌ Login API Crash:', err);
+        res.status(500).json({ message: 'Lỗi server.' });
+    }
 });
 
 // API ĐĂNG KÝ
