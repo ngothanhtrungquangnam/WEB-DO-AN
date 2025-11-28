@@ -167,58 +167,51 @@ await db.promise().query(sql, [email, hashedPassword, defaultRole, defaultStatus
     }
 });
 
-// API GỬI YÊU CẦU QUÊN MẬT KHẨU
-app.post('/api/forgot-password-request', (req, res) => {
+// API GỬI YÊU CẦU QUÊN MẬT KHẨU (ĐÃ FIX LỖI CRASH)
+app.post('/api/forgot-password-request', async (req, res) => {
     const { email, fullName } = req.body;
     
-    console.log("1. Nhận yêu cầu reset cho:", email, fullName); // LOG 1
+    // Log để kiểm tra dữ liệu gửi lên
+    console.log(`📩 Nhận yêu cầu reset: Email=${email}, Tên=${fullName}`);
 
     if (!email || !fullName) {
-        return res.status(400).json({ message: 'Thiếu thông tin.' });
+        return res.status(400).json({ message: 'Vui lòng nhập đầy đủ Email và Tên của bạn.' });
     }
 
-    // Chú ý: Phải SELECT cả hostName
-    const findUserSql = 'SELECT id, email, hostName FROM users WHERE email = ? AND hostName = ?';
-    
-    db.query(findUserSql, [email, fullName], (err, results) => {
-        if (err) {
-            console.error("2. Lỗi tìm user:", err); // LOG 2
-            return res.status(500).json({ message: 'Lỗi server khi tìm user.' });
-        }
-        
-        if (results.length === 0) {
-            console.log("3. Không tìm thấy user khớp thông tin."); // LOG 3
-            return res.status(404).json({ message: 'Thông tin không khớp.' });
+    try {
+        // 1. TÌM USER (Dùng hostName để khớp với "Họ và Tên")
+        const findUserSql = 'SELECT id, email, hostName FROM users WHERE email = ? AND hostName = ?';
+        const [users] = await db.promise().query(findUserSql, [email, fullName]);
+
+        if (users.length === 0) {
+            console.log("❌ Không tìm thấy user khớp thông tin.");
+            return res.status(404).json({ message: 'Thông tin không khớp với bất kỳ tài khoản nào.' });
         }
 
-        const user = results[0];
-        console.log("4. Tìm thấy user:", user); // LOG 4: Quan trọng! Xem user có hostName không?
+        const user = users[0];
+        console.log("✅ Tìm thấy user ID:", user.id);
 
+        // 2. KIỂM TRA YÊU CẦU ĐANG CHỜ (PENDING)
         const checkPendingSql = 'SELECT id FROM password_reset_requests WHERE user_id = ? AND status = "pending"';
-        
-        db.query(checkPendingSql, [user.id], (err, pendingResults) => {
-            if (pendingResults.length > 0) {
-                return res.status(409).json({ message: 'Bạn đã có yêu cầu đang chờ xử lý.' });
-            }
+        const [pendingRequests] = await db.promise().query(checkPendingSql, [user.id]);
 
-            // LOG 5: Kiểm tra giá trị trước khi Insert
-            console.log("5. Chuẩn bị Insert với hostName:", user.hostName); 
+        if (pendingRequests.length > 0) {
+            console.warn("⚠️ User đã có yêu cầu đang chờ.");
+            return res.status(409).json({ message: 'Bạn đã có yêu cầu đang chờ xử lý. Vui lòng đợi Admin duyệt.' });
+        }
 
-            const insertSql = 'INSERT INTO password_reset_requests (user_id, email, fullName) VALUES (?, ?, ?)';
-            
-            // Nếu user.hostName không có, dùng tạm chuỗi rỗng '' để tránh crash
-            const nameToSave = user.hostName || ''; 
+        // 3. TẠO YÊU CẦU MỚI
+        const insertSql = 'INSERT INTO password_reset_requests (user_id, email, fullName) VALUES (?, ?, ?)';
+        // Lưu ý: Dùng user.hostName để lưu vào cột fullName
+        await db.promise().query(insertSql, [user.id, user.email, user.hostName]);
 
-            db.query(insertSql, [user.id, user.email, nameToSave], (insertErr) => {
-                if (insertErr) {
-                    console.error("6. Lỗi khi INSERT:", insertErr); // LOG 6: Đây là chỗ bắt lỗi 500
-                    return res.status(500).json({ message: 'Lỗi server khi tạo yêu cầu.' });
-                }
-                console.log("7. Thành công!"); // LOG 7
-                res.json({ message: 'Đã gửi yêu cầu thành công!' });
-            });
-        });
-    });
+        console.log("🎉 Tạo yêu cầu thành công!");
+        res.json({ message: 'Đã gửi yêu cầu thành công! Vui lòng chờ Admin duyệt.' });
+
+    } catch (err) {
+        console.error("🔥 LỖI SERVER (Forgot Password):", err);
+        res.status(500).json({ message: 'Lỗi hệ thống, vui lòng thử lại sau.' });
+    }
 });
 // =====================================================================================
 //                             API ADMIN (CORE CHO BÀI TOÁN)
