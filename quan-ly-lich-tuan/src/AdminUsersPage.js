@@ -147,9 +147,9 @@ const handleResetPassword = (id) => {
         { title: 'ID', dataIndex: 'id', key: 'id', width: 60, sorter: (a, b) => a.id - b.id },
         { title: 'Email', dataIndex: 'email', key: 'email', width: 240 },
         { 
-           title: 'Họ và Tên', 
-    dataIndex: 'hostName', // ✅ Đúng tên trong Database
-    key: 'hostName', 
+    title: 'Họ và Tên', 
+    dataIndex: 'fullName', // ✅ SỬA TỪ 'hostName' SANG 'fullName'
+    key: 'fullName', 
     width: 200,
             render: (text, record) => (
                 <Space>

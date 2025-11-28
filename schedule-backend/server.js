@@ -192,9 +192,9 @@ app.post('/api/forgot-password-request', async (req, res) => {
         console.log("✅ Tìm thấy user ID:", user.id);
 
         // 2. KIỂM TRA YÊU CẦU ĐANG CHỜ (PENDING)
-        const checkPendingSql = 'SELECT id FROM password_reset_requests WHERE user_id = ? AND status = "pending"';
-        const [pendingRequests] = await db.promise().query(checkPendingSql, [user.id]);
-
+        // Cách 1: Đổi dấu bao bên ngoài thành ngoặc kép, bên trong thành nháy đơn
+       const checkPendingSql = "SELECT id FROM password_reset_requests WHERE user_id = ? AND status = 'pending'";
+        const [pendingRequests] = await db.promise().query(checkPendingSql, [user.id, 'pending']);
         if (pendingRequests.length > 0) {
             console.warn("⚠️ User đã có yêu cầu đang chờ.");
             return res.status(409).json({ message: 'Bạn đã có yêu cầu đang chờ xử lý. Vui lòng đợi Admin duyệt.' });
