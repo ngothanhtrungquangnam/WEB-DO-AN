@@ -10,35 +10,33 @@ const authMiddleware = require('./middleware/auth');
 const adminMiddleware = require('./middleware/admin');
 
 const app = express();
-// Cho phép tất cả các trang web truy cập (Sửa lỗi CORS triệt để)
-app.use(cors());
-// // ✅ SỬA: Cấu hình CORS an toàn
-// const corsOptions = {
-//     origin: function (origin, callback) {
-//         const allowedOrigins = [
-//             'https://thankful-sea-0dc589b00-3.azurestaticapps.net',
-//             'http://localhost:3000',
-//             'http://localhost:5173'
-//         ];
-        
-//         if (!origin) return callback(null, true);
-        
-//         if (allowedOrigins.includes(origin)) {
-//             callback(null, true);
-//         } else {
-//             console.warn('⚠️ CORS blocked:', origin);
-//             callback(new Error('Not allowed by CORS'));
-//         }
-//     },
-//     credentials: true,
-//     methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-//     allowedHeaders: ['Content-Type', 'Authorization']
-// };
 
-// app.use(cors(corsOptions));
-// app.options('*', cors(corsOptions));
+// ✅ SỬA: Cấu hình CORS an toàn
+const corsOptions = {
+    origin: function (origin, callback) {
+        const allowedOrigins = [
+            'https://thankful-sea-0dc589b00.3.azurestaticapps.net/login', // ✅ Sửa: bd8 không phải b00
+            'http://localhost:3000',
+            'http://localhost:5173'
+        ];
+        
+        if (!origin) return callback(null, true);
+        
+        if (allowedOrigins.includes(origin)) {
+            callback(null, true);
+        } else {
+            console.warn('⚠️ CORS blocked:', origin);
+            callback(new Error('Not allowed by CORS'));
+        }
+    },
+    credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization']
+};
+app.use(cors(corsOptions));
+app.options('*', cors(corsOptions));
 app.use(express.json());
-
+app.use(express.urlencoded({ extended: true }));
 // ✅ SỬA: Dùng environment variables thay vì hard-code
 const JWT_SECRET = process.env.JWT_SECRET || 'YOUR_SUPER_SECRET_KEY_12345';
 
