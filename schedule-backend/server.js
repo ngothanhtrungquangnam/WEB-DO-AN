@@ -171,21 +171,29 @@ await db.promise().query(sql, [email, hashedPassword, defaultRole, defaultStatus
 app.post('/api/forgot-password-request', (req, res) => {
     const { email, fullName } = req.body;
     
+    console.log("1. Nhận yêu cầu reset cho:", email, fullName); // LOG 1
+
     if (!email || !fullName) {
-        return res.status(400).json({ message: 'Vui lòng nhập đầy đủ Email và Tên của bạn.' });
+        return res.status(400).json({ message: 'Thiếu thông tin.' });
     }
 
-   // Tìm theo hostName
-const findUserSql = 'SELECT id, email, hostName FROM users WHERE email = ? AND hostName = ?';
+    // Chú ý: Phải SELECT cả hostName
+    const findUserSql = 'SELECT id, email, hostName FROM users WHERE email = ? AND hostName = ?';
     
     db.query(findUserSql, [email, fullName], (err, results) => {
-        if (err) return res.status(500).json({ message: 'Lỗi server.' });
+        if (err) {
+            console.error("2. Lỗi tìm user:", err); // LOG 2
+            return res.status(500).json({ message: 'Lỗi server khi tìm user.' });
+        }
         
         if (results.length === 0) {
-            return res.status(404).json({ message: 'Thông tin không khớp với bất kỳ tài khoản nào.' });
+            console.log("3. Không tìm thấy user khớp thông tin."); // LOG 3
+            return res.status(404).json({ message: 'Thông tin không khớp.' });
         }
 
         const user = results[0];
+        console.log("4. Tìm thấy user:", user); // LOG 4: Quan trọng! Xem user có hostName không?
+
         const checkPendingSql = 'SELECT id FROM password_reset_requests WHERE user_id = ? AND status = "pending"';
         
         db.query(checkPendingSql, [user.id], (err, pendingResults) => {
@@ -193,16 +201,25 @@ const findUserSql = 'SELECT id, email, hostName FROM users WHERE email = ? AND h
                 return res.status(409).json({ message: 'Bạn đã có yêu cầu đang chờ xử lý.' });
             }
 
-            // ✅ SỬA: Dùng hostName thay vì fullName
+            // LOG 5: Kiểm tra giá trị trước khi Insert
+            console.log("5. Chuẩn bị Insert với hostName:", user.hostName); 
+
             const insertSql = 'INSERT INTO password_reset_requests (user_id, email, fullName) VALUES (?, ?, ?)';
-            db.query(insertSql, [user.id, user.email, user.hostName], (insertErr) => {
-                if (insertErr) return res.status(500).json({ message: 'Lỗi server.' });
+            
+            // Nếu user.hostName không có, dùng tạm chuỗi rỗng '' để tránh crash
+            const nameToSave = user.hostName || ''; 
+
+            db.query(insertSql, [user.id, user.email, nameToSave], (insertErr) => {
+                if (insertErr) {
+                    console.error("6. Lỗi khi INSERT:", insertErr); // LOG 6: Đây là chỗ bắt lỗi 500
+                    return res.status(500).json({ message: 'Lỗi server khi tạo yêu cầu.' });
+                }
+                console.log("7. Thành công!"); // LOG 7
                 res.json({ message: 'Đã gửi yêu cầu thành công!' });
             });
         });
     });
 });
-
 // =====================================================================================
 //                             API ADMIN (CORE CHO BÀI TOÁN)
 // =====================================================================================
