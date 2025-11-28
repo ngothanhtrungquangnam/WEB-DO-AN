@@ -11,11 +11,10 @@ const adminMiddleware = require('./middleware/admin');
 
 const app = express();
 
-// ✅ SỬA: Cấu hình CORS an toàn
 const corsOptions = {
     origin: function (origin, callback) {
         const allowedOrigins = [
-            'https://thankful-sea-0dc589b00.3.azurestaticapps.net/login', // ✅ Sửa: bd8 không phải b00
+            'https://thankful-sea-0dc589b00.3.azurestaticapps.net', // ✅ ĐÚNG: b00 không phải bd8
             'http://localhost:3000',
             'http://localhost:5173'
         ];
@@ -33,8 +32,9 @@ const corsOptions = {
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization']
 };
+
 app.use(cors(corsOptions));
-app.options('*', cors(corsOptions));
+
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 // ✅ SỬA: Dùng environment variables thay vì hard-code
