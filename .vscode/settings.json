@@ -1,0 +1,8 @@
+{
+    "appService.zipIgnorePattern": [
+        "node_modules{,/**}",
+        ".vscode{,/**}"
+    ],
+    "appService.defaultWebAppToDeploy": "/subscriptions/eb421012-363a-44be-a11e-a26dcea1f38c/resourceGroups/quan-ly-lich-tuan/providers/Microsoft.Web/sites/lich-tuan-api",
+    "appService.deploySubpath": "schedule-backend"
+}

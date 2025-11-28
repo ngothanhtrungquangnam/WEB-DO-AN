@@ -1,0 +1,74 @@
+/* src/CustomStyles.css */
+
+/* 1. CSS cho Sidebar */
+.custom-sider {
+  background: #3c8dbc !important;
+}
+
+.custom-sider .ant-menu-dark {
+  background: transparent;
+}
+
+.custom-sider .ant-menu-dark .ant-menu-item-selected,
+.custom-sider .ant-menu-dark .ant-menu-sub .ant-menu-item-selected {
+  background-color: #367fa9 !important;
+}
+
+/* 2. CSS cho thanh ngang MÀU XANH chứa các nút */
+.schedule-header-bar {
+  background-color: #3c8dbc;
+  padding: 10px;
+  border-radius: 4px;
+  margin-bottom: 16px;
+  display: flex;
+  justify-content: flex-start;
+}
+
+/* 2. CSS cho nền XANH LÁ NHẠT của các bộ lọc */
+.filter-select .ant-select-selector {
+  background-color: #e6f7e9 !important; /* Màu xanh lá nhạt */
+  border: none !important; /* Xóa viền */
+  box-shadow: none !important; /* Xóa bóng đổ (shadow) */
+}
+
+/* Đảm bảo toàn bộ component cũng có nền trong suốt */
+.filter-select {
+  background: transparent !important;
+}
+
+/* 4. CSS cho nền xám của tiêu đề Bảng (Table Header) */
+.ant-table-thead > tr > th {
+  background-color: #f2f2f2 !important;
+}
+
+/* 5. CSS cho Tabs */
+.ant-tabs-card > .ant-tabs-nav,
+.ant-tabs-card > div > .ant-tabs-nav {
+  border: 1px solid #dee2e6;
+  border-radius: 4px;
+}
+
+.ant-tabs-card > .ant-tabs-nav .ant-tabs-tab-active,
+.ant-tabs-card > div > .ant-tabs-nav .ant-tabs-tab-active {
+  background: #fff;
+  border-bottom-color: #fff;
+}
+
+.ant-tabs-card > .ant-tabs-nav .ant-tabs-tab,
+.ant-tabs-card > div > .ant-tabs-nav .ant-tabs-tab {
+   background: #f8f9fa;
+   border-color: #dee2e6;
+}
+
+.ant-tabs-card > .ant-tabs-nav::before,
+.ant-tabs-card > div > .ant-tabs-nav::before {
+  border-bottom: 0 !important;
+}
+/* 6. CSS cho nhãn (label) của bộ lọc */
+.filter-label {
+  display: block; /* <<--- DÒNG QUAN TRỌNG NHẤT: Ép nhãn xuống một hàng */
+  font-weight: bold;
+  color: #0056b3; /* Màu xanh đậm */
+  margin-bottom: 4px; /* Khoảng cách với ô select bên dưới */
+  font-size: 14px;
+}

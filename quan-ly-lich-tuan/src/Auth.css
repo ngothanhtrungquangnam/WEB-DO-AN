@@ -1,0 +1,136 @@
+/* Container bao quanh toàn màn hình */
+.auth-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 100vh;
+  /* Màu nền Gradient xanh đậm chất Bách Khoa / Ant Design */
+  background: linear-gradient(135deg, #0050b3 0%, #002766 100%);
+  /* Hoặc bạn có thể dùng hình ảnh nền trường học (bỏ comment dòng dưới) */
+  /* background: url('./dut_background.jpg') no-repeat center center/cover; */
+  position: relative;
+  overflow: hidden;
+}
+
+/* Hiệu ứng các vòng tròn trang trí nền (Tùy chọn cho đẹp) */
+.auth-container::before {
+  content: '';
+  position: absolute;
+  top: -100px;
+  left: -100px;
+  width: 300px;
+  height: 300px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 50%;
+}
+.auth-container::after {
+  content: '';
+  position: absolute;
+  bottom: -50px;
+  right: -50px;
+  width: 200px;
+  height: 200px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 50%;
+}
+
+/* Card Form chính */
+.auth-card {
+  width: 100%;
+  max-width: 420px;
+  padding: 40px 30px;
+  background: #ffffff;
+  border-radius: 16px; /* Bo góc mềm mại */
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2); /* Đổ bóng sâu tạo hiệu ứng nổi */
+  z-index: 1; /* Nổi lên trên nền */
+  animation: slideUp 0.5s ease-out; /* Hiệu ứng trượt lên khi mở */
+}
+
+.auth-header {
+  /* Dùng Flexbox để xếp các phần tử nằm ngang */
+  display: flex; 
+  flex-direction: column; /* Mặc định là cột dọc (để tiêu đề nằm dưới ảnh) */
+  align-items: center;
+  margin-bottom: 32px;
+}
+
+/* Container chứa các Logo (Thêm class này vào code JS) */
+.auth-logo-container {
+  display: flex;          /* Xếp 2 ảnh nằm ngang */
+  justify-content: center;
+  align-items: center;
+  gap: 20px;              /* Khoảng cách giữa 2 ảnh */
+  margin-bottom: 16px;    /* Khoảng cách xuống tiêu đề */
+}
+
+.auth-logo {
+  height: 70px; /* Điều chỉnh chiều cao cho cân đối */
+  width: auto;  /* Tự động chỉnh chiều rộng theo tỷ lệ */
+  object-fit: contain;
+}
+
+.auth-title {
+  font-size: 24px;
+  font-weight: 700;
+  color: #003a8c; /* Màu xanh đậm */
+  margin: 0;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.auth-subtitle {
+  color: #8c8c8c;
+  font-size: 14px;
+  margin-top: 5px;
+}
+
+/* Tùy chỉnh nút bấm */
+.auth-button {
+  height: 40px;
+  font-size: 16px;
+  font-weight: 600;
+  border-radius: 8px;
+  background: linear-gradient(to right, #1890ff, #096dd9);
+  border: none;
+  transition: all 0.3s ease;
+}
+
+.auth-button:hover {
+  background: linear-gradient(to right, #40a9ff, #1890ff);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(24, 144, 255, 0.4);
+}
+
+/* Footer chuyển trang */
+.auth-footer {
+  text-align: center;
+  margin-top: 20px;
+  padding-top: 20px;
+  border-top: 1px solid #f0f0f0;
+  font-size: 14px;
+}
+
+.auth-link {
+  color: #1890ff;
+  font-weight: 600;
+  cursor: pointer;
+  margin-left: 5px;
+  text-decoration: none;
+}
+
+.auth-link:hover {
+  text-decoration: underline;
+  color: #096dd9;
+}
+
+/* Animation */
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
