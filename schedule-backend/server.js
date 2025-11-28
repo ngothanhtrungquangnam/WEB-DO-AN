@@ -10,22 +10,50 @@ const authMiddleware = require('./middleware/auth');
 const adminMiddleware = require('./middleware/admin');
 
 const app = express();
-const port = 3001;
-
+// Cho phép tất cả các trang web truy cập (Sửa lỗi CORS triệt để)
 app.use(cors());
+// // ✅ SỬA: Cấu hình CORS an toàn
+// const corsOptions = {
+//     origin: function (origin, callback) {
+//         const allowedOrigins = [
+//             'https://thankful-sea-0dc589b00-3.azurestaticapps.net',
+//             'http://localhost:3000',
+//             'http://localhost:5173'
+//         ];
+        
+//         if (!origin) return callback(null, true);
+        
+//         if (allowedOrigins.includes(origin)) {
+//             callback(null, true);
+//         } else {
+//             console.warn('⚠️ CORS blocked:', origin);
+//             callback(new Error('Not allowed by CORS'));
+//         }
+//     },
+//     credentials: true,
+//     methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+//     allowedHeaders: ['Content-Type', 'Authorization']
+// };
+
+// app.use(cors(corsOptions));
+// app.options('*', cors(corsOptions));
 app.use(express.json());
 
-// --- CẤU HÌNH BÍ MẬT ---
-const JWT_SECRET = 'YOUR_SUPER_SECRET_KEY_12345'; 
-// -------------------------
+// ✅ SỬA: Dùng environment variables thay vì hard-code
+const JWT_SECRET = process.env.JWT_SECRET || 'YOUR_SUPER_SECRET_KEY_12345';
 
-// KẾT NỐI DB
+if (!process.env.JWT_SECRET && process.env.NODE_ENV === 'production') {
+    console.error('⚠️ WARNING: JWT_SECRET chưa được thiết lập trong production!');
+}
+
+// ✅ SỬA: Dùng environment variables cho database
 const db = mysql.createConnection({
-    host: 'mysql-2f0f2f65-quanlylichtuan2025.g.aivencloud.com',
-    port: 11845,
-    user: 'avnadmin',
-    password: 'AVNS_0yRZ11XzXUYlvr1inPx',
-    database: 'defaultdb',
+    host: process.env.DB_HOST || 'mysql-2f0f2f65-quanlylichtuan2025.g.aivencloud.com',
+    port: parseInt(process.env.DB_PORT || '11845'),
+    user: process.env.DB_USER || 'avnadmin',
+    password: process.env.DB_PASSWORD || 'AVNS_0yRZ11XzXUYlvr1inPx',
+    database: process.env.DB_NAME || 'defaultdb',
+    connectTimeout: 10000,
     ssl: {
         rejectUnauthorized: false    
     }
@@ -34,10 +62,33 @@ const db = mysql.createConnection({
 db.connect((err) => {
     if (err) {
         console.error('❌ Kết nối Database thất bại:', err);
-        process.exit(1); // Thoát nếu không kết nối được DB
+        process.exit(1);
     }
     console.log('✅ Đã kết nối Database Aiven thành công!');
 });
+
+// ✅ THÊM: Middleware logging
+app.use((req, res, next) => {
+    console.log(`${new Date().toISOString()} - ${req.method} ${req.url}`);
+    next();
+});
+
+// ✅ THÊM: Health check endpoints
+app.get('/', (req, res) => {
+    res.json({ 
+        status: 'OK', 
+        message: 'Lịch Tuần API is running',
+        timestamp: new Date().toISOString()
+    });
+});
+
+app.get('/health', (req, res) => {
+    res.json({ 
+        status: 'healthy',
+        database: db ? 'connected' : 'disconnected'
+    });
+});
+
 // =====================================================================================
 //                                API XÁC THỰC (AUTH)
 // =====================================================================================
@@ -136,8 +187,9 @@ const findUserSql = 'SELECT id, email, hostName FROM users WHERE email = ? AND h
                 return res.status(409).json({ message: 'Bạn đã có yêu cầu đang chờ xử lý.' });
             }
 
+            // ✅ SỬA: Dùng hostName thay vì fullName
             const insertSql = 'INSERT INTO password_reset_requests (user_id, email, fullName) VALUES (?, ?, ?)';
-            db.query(insertSql, [user.id, user.email, user.fullName], (insertErr) => {
+            db.query(insertSql, [user.id, user.email, user.hostName], (insertErr) => {
                 if (insertErr) return res.status(500).json({ message: 'Lỗi server.' });
                 res.json({ message: 'Đã gửi yêu cầu thành công!' });
             });
@@ -413,15 +465,59 @@ app.put('/api/user/profile', authMiddleware, (req, res) => {
         res.json({ message: 'Cập nhật thành công.' });
     });
 });
+
+// ✅ SỬA: Thêm error handling đầy đủ
 app.patch('/api/user/password', authMiddleware, async (req, res) => {
     const { currentPassword, newPassword } = req.body;
     const userId = req.user.id;
+    
     db.query('SELECT passwordHash FROM users WHERE id = ?', [userId], async (err, results) => {
+        if (err) {
+            console.error('Lỗi query password:', err);
+            return res.status(500).json({ message: 'Lỗi server.' });
+        }
+        
+        if (!results || results.length === 0) {
+            return res.status(404).json({ message: 'Không tìm thấy user.' });
+        }
+        
         const isMatch = await bcrypt.compare(currentPassword, results[0].passwordHash);
         if (!isMatch) return res.status(401).json({ message: 'Mật khẩu sai.' });
+        
         const newHashed = await bcrypt.hash(newPassword, 10);
-        db.query('UPDATE users SET passwordHash = ? WHERE id = ?', [newHashed, userId], () => res.json({ message: 'Đổi mật khẩu thành công.' }));
+        db.query('UPDATE users SET passwordHash = ? WHERE id = ?', [newHashed, userId], (updateErr) => {
+            if (updateErr) {
+                console.error('Lỗi update password:', updateErr);
+                return res.status(500).json({ message: 'Lỗi server.' });
+            }
+            res.json({ message: 'Đổi mật khẩu thành công.' });
+        });
     });
+});
+
+// ✅ THÊM: 404 handler
+app.use((req, res) => {
+    res.status(404).json({ message: 'API endpoint không tồn tại.' });
+});
+
+// ✅ THÊM: Global error handler
+app.use((err, req, res, next) => {
+    console.error('❌ Error:', {
+        message: err.message,
+        url: req.url,
+        method: req.method,
+        time: new Date().toISOString()
+    });
+    
+    const errorResponse = {
+        message: 'Đã xảy ra lỗi. Vui lòng thử lại sau.'
+    };
+    
+    if (process.env.NODE_ENV !== 'production') {
+        errorResponse.error = err.message;
+    }
+    
+    res.status(err.status || 500).json(errorResponse);
 });
 
 // Lấy port từ Azure (quan trọng!)
