@@ -264,9 +264,21 @@ app.get('/api/admin/users', authMiddleware, adminMiddleware, (req, res) => {
     // Subquery đếm requestCount: > 0 nghĩa là có yêu cầu
  // THAY THẾ TOÀN BỘ SQL TRONG API NÀY BẰNG:
 const sql = `
-    SELECT u.id, u.email, u.role, u.status, u.hostName as fullName,
-           0 as requestCount  /* Sửa cứng thành 0 để không bị crash */
+    SELECT 
+        u.id, 
+        u.email, 
+        u.role, 
+        u.status, 
+        u.hostName AS fullName,
+        COALESCE(r.count, 0) AS requestCount /* ✅ Lấy count từ JOIN, nếu NULL thì coi là 0 */
     FROM users u
+    LEFT JOIN (
+        /* Truy vấn riêng: Đếm tất cả yêu cầu pending cho từng user */
+        SELECT user_id, COUNT(*) AS count
+        FROM password_reset_requests
+        WHERE status = 'pending'
+        GROUP BY user_id
+    ) r ON r.user_id = u.id /* Nối count vào bảng users */
     ORDER BY u.id DESC
 `;
     // ORDER BY requestCount DESC sẽ đưa người có yêu cầu lên đầu
