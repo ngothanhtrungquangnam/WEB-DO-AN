@@ -26,8 +26,19 @@ dayjs.locale('vi');
 
 const customLocale = {
   ...viVN,
-  TimePicker: { ...viVN.TimePicker, ok: 'Chọn' },
-  DatePicker: { ...viVN.DatePicker, lang: { ...viVN.DatePicker.lang, ok: 'Chọn' } },
+  // 1. Sửa cho phần chọn Giờ (TimePicker)
+  TimePicker: {
+    ...viVN.TimePicker,
+    ok: 'OK', // 👈 Đổi từ 'Chọn' (hoặc mặc định là Được rồi) thành 'OK'
+  },
+  // 2. Sửa cho phần chọn Ngày (DatePicker/RangePicker)
+  DatePicker: {
+    ...viVN.DatePicker,
+    lang: {
+      ...viVN.DatePicker.lang,
+      ok: 'OK', // 👈 Đổi tiếp ở đây thành 'OK'
+    }
+  },
 };
 
 function App() {

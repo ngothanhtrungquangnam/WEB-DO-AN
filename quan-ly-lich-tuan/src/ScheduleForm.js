@@ -74,7 +74,7 @@ const ScheduleForm = () => {
   }, []); 
 
 
-  // --- 3. LOGIC SUBMIT FORM ---
+// --- 3. LOGIC SUBMIT FORM ---
   const onFinish = (values) => {
     const noiDung = editorNoiDungRef.current ? editorNoiDungRef.current.getContent() : '';
     const thanhPhan = editorThanhPhanRef.current ? editorThanhPhanRef.current.getContent() : '';
@@ -84,8 +84,23 @@ const ScheduleForm = () => {
       return; 
     }
 
+    // 👇 [QUAN TRỌNG] XỬ LÝ NGÀY THÁNG ĐỂ TRÁNH LỖI LÙI NGÀY
+    // Chuyển đổi đối tượng Dayjs thành chuỗi "YYYY-MM-DD" cứng
+    // Lúc này server sẽ nhận chuỗi "2025-11-14" chứ không phải giờ UTC nữa
+    const formattedDate = values.ngay ? values.ngay.format('YYYY-MM-DD') : null;
+
+    // Xử lý thời gian (nếu cần thiết để tránh lỗi múi giờ cho giờ giấc)
+    // Antd TimePicker trả về mảng Dayjs, ta nên format luôn
+    let formattedThoiGian = values.thoiGian;
+    if (values.thoiGian && values.thoiGian.length === 2) {
+        // Backend của bạn đang xử lý mảng này, nên ta cứ gửi mảng string ISO hoặc giữ nguyên cũng được
+        // Nhưng tốt nhất cứ giữ nguyên thoiGian vì Backend bạn có đoạn dayjs(thoiGian[0])
+        // Tuy nhiên, quan trọng nhất là cái 'ngay' ở trên.
+    }
+
     const fullData = {
       ...values, 
+      ngay: formattedDate, // 👈 GHI ĐÈ GIÁ TRỊ NGÀY ĐÃ FORMAT
       noiDung,
       thanhPhan,
     };
@@ -122,7 +137,6 @@ const ScheduleForm = () => {
         }
     });
   };
-
   const handleHostChange = (selectedValue) => {
     const selectedUser = hostOptions.find(u => u.value === selectedValue); 
     if (selectedUser) {
