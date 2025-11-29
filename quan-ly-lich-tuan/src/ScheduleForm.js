@@ -16,20 +16,18 @@ const { RangePicker } = TimePicker;
 // --- 1. ĐỊNH NGHĨA API URL CHUẨN (NODE.JS) ---
 const BASE_API_URL = 'https://lich-tuan-api-bcg9d2aqfgbwbbcv.eastasia-01.azurewebsites.net/api';
 
-// ĐÃ XÓA MOCK_USER_OPTIONS VÀ userOptions
-// const MOCK_USER_OPTIONS = [...]; 
-
 const ScheduleForm = () => {
   const [form] = Form.useForm();
   const editorNoiDungRef = useRef(null);
   const editorThanhPhanRef = useRef(null);
   
   const [locationOptions, setLocationOptions] = useState([]);
-  // 👇 ĐÃ THAY ĐỔI: Dùng state mới để lưu Host Options THẬT
   const [hostOptions, setHostOptions] = useState([]); 
+  
+  // 👇 1. STATE MỚI CHO KHOA/PHÒNG BAN
+  const [departmentOptions, setDepartmentOptions] = useState([]); 
 
-
-  // --- 2. LOGIC FETCH CHỦ TRÌ VÀ ĐỊA ĐIỂM (CẬP NHẬT) ---
+  // --- 2. LOGIC FETCH DỮ LIỆU TỪ API ---
   useEffect(() => {
     const token = localStorage.getItem('userToken'); 
 
@@ -38,56 +36,45 @@ const ScheduleForm = () => {
         'Authorization': `Bearer ${token}` 
     };
 
-    // Hàm lấy danh sách Chủ trì (Host List) từ API mới
+    // Hàm lấy danh sách Chủ trì
     const fetchHostOptions = () => {
         fetch(`${BASE_API_URL}/active-users`, { headers })
-        .then(response => {
-             if (response.status === 401) throw new Error('UNAUTHORIZED');
-             if (!response.ok) throw new Error('Lỗi tải danh sách chủ trì');
-             return response.json();
-        })
-        .then(data => {
-            // API trả về format { value: email, label: hostName } đã sẵn sàng cho Select
-            setHostOptions(data);
-        })
-        .catch(error => {
-            if (error.message === 'UNAUTHORIZED') {
-                 console.warn('Hết phiên đăng nhập khi tải chủ trì');
-            } else {
-                 message.error('Không thể tải danh sách Chủ trì.');
-            }
-        });
+        .then(res => res.json())
+        .then(data => setHostOptions(data))
+        .catch(() => message.error('Lỗi tải danh sách chủ trì.'));
     };
 
-    // Hàm lấy danh sách Địa điểm (Giữ nguyên)
+    // Hàm lấy danh sách Địa điểm
     const fetchLocationOptions = () => {
         fetch(`${BASE_API_URL}/locations`, { headers })
-        .then(response => {
-            if (response.status === 401) throw new Error('UNAUTHORIZED');
-            if (!response.ok) throw new Error('Lỗi mạng');
-            return response.json();
-        })
+        .then(res => res.json())
         .then(data => {
-            const formattedLocations = data.map(loc => ({
-                 label: loc.ten, 
-                 value: loc.ten 
-            }));
-            setLocationOptions(formattedLocations);
+            const formatted = data.map(loc => ({ label: loc.ten, value: loc.ten }));
+            setLocationOptions(formatted);
         })
-        .catch(error => {
-            if (error.message !== 'UNAUTHORIZED') {
-                message.error('Không thể tải danh sách địa điểm.');
-            }
-        });
+        .catch(() => console.error('Lỗi tải địa điểm'));
+    };
+
+    // 👇 3. HÀM MỚI: LẤY DANH SÁCH KHOA TỪ API
+    const fetchDepartmentOptions = () => {
+        fetch(`${BASE_API_URL}/departments`, { headers })
+        .then(res => res.json())
+        .then(data => {
+            // Chuyển đổi dữ liệu API thành dạng { label, value } cho Select
+            const formatted = data.map(dept => ({ label: dept.name, value: dept.name }));
+            setDepartmentOptions(formatted);
+        })
+        .catch(() => console.error('Lỗi tải danh sách Khoa'));
     };
 
     fetchHostOptions();
     fetchLocationOptions();
+    fetchDepartmentOptions(); // <-- Gọi hàm này
 
   }, []); 
 
 
-  // --- 3. LOGIC SUBMIT FORM (Giữ nguyên) ---
+  // --- 3. LOGIC SUBMIT FORM ---
   const onFinish = (values) => {
     const noiDung = editorNoiDungRef.current ? editorNoiDungRef.current.getContent() : '';
     const thanhPhan = editorThanhPhanRef.current ? editorThanhPhanRef.current.getContent() : '';
@@ -136,12 +123,9 @@ const ScheduleForm = () => {
     });
   };
 
-  // (Hàm xử lý Host giữ nguyên)
   const handleHostChange = (selectedValue) => {
-    // 👇 CẬP NHẬT: Dùng hostOptions thay vì userOptions
     const selectedUser = hostOptions.find(u => u.value === selectedValue); 
     if (selectedUser) {
-      // Đảm bảo chuTriTen lấy từ label (hostName)
       form.setFieldsValue({ chuTriTen: selectedUser.label }); 
     } else {
       form.setFieldsValue({ chuTriTen: undefined });
@@ -168,9 +152,8 @@ const ScheduleForm = () => {
                 <Switch />
             </Form.Item>
 
-            {/* NÚT MỚI: LỊCH BỔ SUNG */}
             <Form.Item name="isBoSung" label="Lịch bổ sung" valuePropName="checked" style={{ marginBottom: 0 }}>
-                <Switch style={{ backgroundColor: '#ff4d4f' }} /> {/* Màu đỏ để cảnh báo */}
+                <Switch style={{ backgroundColor: '#ff4d4f' }} />
             </Form.Item>
         </div>
         <Form.Item label="Nội dung">
@@ -183,12 +166,27 @@ const ScheduleForm = () => {
           <Switch />
         </Form.Item>
         
-        {/* ĐỊA ĐIỂM (LOCATION) */}
         <Form.Item name="diaDiem" label="Địa điểm" rules={[{ required: true, message: 'Vui lòng chọn địa điểm!' }]}>
           <Select showSearch placeholder="Chọn địa điểm" options={locationOptions} loading={locationOptions.length === 0} />
         </Form.Item>
 
-        {/* CHỦ TRÌ (HOST) */}
+        {/* 👇 4. THÊM Ô CHỌN KHOA/PHÒNG BAN VÀO ĐÂY */}
+        {/* Giả sử bạn muốn lưu tên khoa vào một biến nào đó, ví dụ 'donViToChuc' hoặc 'khoaPhong' */}
+        {/* Nếu Database bảng schedules chưa có cột này, bạn cần thêm cột vào DB trước (như bước 1 tôi hướng dẫn) */}
+        <Form.Item 
+            name="donVi" // Tên field này tùy bạn đặt, nhớ phải khớp với cột trong DB nếu có
+            label="Khoa / Phòng ban" 
+            // rules={[{ required: true, message: 'Vui lòng chọn đơn vị!' }]} // Bỏ comment nếu muốn bắt buộc
+        >
+          <Select 
+            showSearch 
+            placeholder="Chọn Khoa / Phòng ban" 
+            options={departmentOptions} 
+            loading={departmentOptions.length === 0}
+            filterOption={(input, option) => (option?.label ?? '').toLowerCase().includes(input.toLowerCase())}
+          />
+        </Form.Item>
+
         <Form.Item name="chuTriEmail" label="Chủ trì (Chọn tài khoản)" rules={[{ required: true, message: 'Vui lòng chọn tài khoản chủ trì!' }]}>
           <Select 
             showSearch 
@@ -197,7 +195,6 @@ const ScheduleForm = () => {
             loading={hostOptions.length === 0} 
             onChange={handleHostChange}
             allowClear
-            // 👇 THÊM DÒNG NÀY ĐỂ TÌM KIẾM TỐT HƠN (Tìm theo tên hiển thị)
             filterOption={(input, option) =>
               (option?.label ?? '').toLowerCase().includes(input.toLowerCase())
             }

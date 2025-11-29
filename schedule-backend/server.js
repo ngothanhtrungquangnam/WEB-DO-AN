@@ -467,10 +467,56 @@ app.post('/api/locations', authMiddleware, adminMiddleware, (req, res) => {
 app.delete('/api/locations/:id', authMiddleware, adminMiddleware, (req, res) => {
     db.query("DELETE FROM locations WHERE id = ?", [req.params.id], (err, r) => res.json({ message: 'Đã xóa' }));
 });
+// =====================================================================================
+//                              API KHOA / PHÒNG BAN (DEPARTMENTS)
+// =====================================================================================
 
-// --- API USER PROFILE ---
-// --- API USER PROFILE ---
-// --- API USER PROFILE ---
+// 1. Lấy danh sách Khoa (Dùng cho Menu thả xuống ở Form đăng ký)
+app.get('/api/departments', authMiddleware, (req, res) => {
+    db.query("SELECT * FROM departments ORDER BY name ASC", (err, results) => {
+        if (err) {
+            console.error("Lỗi lấy danh sách khoa:", err);
+            return res.status(500).json({ message: 'Lỗi server khi lấy danh sách khoa.' });
+        }
+        res.json(results);
+    });
+});
+
+// 2. Thêm Khoa mới (Dành cho Admin quản lý)
+app.post('/api/departments', authMiddleware, adminMiddleware, (req, res) => {
+    const { name } = req.body;
+    if (!name) return res.status(400).json({ message: 'Tên khoa không được để trống' });
+
+    db.query("INSERT INTO departments (name) VALUES (?)", [name], (err, result) => {
+        if (err) {
+            // Mã lỗi 1062 là trùng lặp (Duplicate entry)
+            if (err.errno === 1062) return res.status(409).json({ message: 'Tên khoa này đã tồn tại.' });
+            return res.status(500).json({ message: 'Lỗi server.' });
+        }
+        res.json({ message: 'Thêm khoa thành công', id: result.insertId });
+    });
+});
+
+// 3. Sửa tên Khoa
+app.put('/api/departments/:id', authMiddleware, adminMiddleware, (req, res) => {
+    const { name } = req.body;
+    const { id } = req.params;
+    
+    db.query("UPDATE departments SET name = ? WHERE id = ?", [name, id], (err, result) => {
+        if (err) return res.status(500).json({ message: 'Lỗi server.' });
+        res.json({ message: 'Cập nhật tên khoa thành công.' });
+    });
+});
+
+// 4. Xóa Khoa
+app.delete('/api/departments/:id', authMiddleware, adminMiddleware, (req, res) => {
+    const { id } = req.params;
+    db.query("DELETE FROM departments WHERE id = ?", [id], (err, result) => {
+        if (err) return res.status(500).json({ message: 'Lỗi server.' });
+        res.json({ message: 'Đã xóa khoa thành công.' });
+    });
+});
+
 app.get('/api/user/profile', authMiddleware, (req, res) => {
     // 👇 SỬA LẠI: Chỉ gọi 'hostName', xóa 'fullName' đi
     db.query('SELECT id, email, role, status, hostName FROM users WHERE id = ?', [req.user.id], (err, results) => {
