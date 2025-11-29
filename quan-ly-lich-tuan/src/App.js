@@ -10,18 +10,18 @@ import MainLayout from './MainLayout';
 import ScheduleDashboard from './ScheduleDashboard';
 import ScheduleForm from './ScheduleForm';
 import LocationManagement from './LocationManagement';
-import AdminSchedulePage from './AdminSchedulePage'; 
-import LoginPage from './LoginPage'; 
-import AuthGuard from './AuthGuard'; 
-import UserPage from './UserPage'; 
-import AdminUsersPage from './AdminUsersPage'; 
-
-// 👇 1. QUAN TRỌNG: PHẢI IMPORT FILE NÀY 👇
+import AdminSchedulePage from './AdminSchedulePage';
+import LoginPage from './LoginPage';
+import AuthGuard from './AuthGuard';
+import UserPage from './UserPage';
+import AdminUsersPage from './AdminUsersPage';
 import RegisterPage from './RegisterPage';
 
+// 👇 MỚI: Import trang Khoa/Phòng ban
+import DepartmentsPage from './DepartmentsPage'; 
+
 import dayjs from 'dayjs';
-import isSameOrBefore from 'dayjs/plugin/isSameOrBefore';
-import 'dayjs/locale/vi'; 
+import 'dayjs/locale/vi';
 dayjs.locale('vi');
 
 const customLocale = {
@@ -36,31 +36,33 @@ function App() {
       <Router>
         <Routes>
           
-          {/* 1. Trang Đăng nhập */}
+          {/* 1. Trang Đăng nhập & Đăng ký (Không có Layout chung) */}
           <Route path="/login" element={<LoginPage />} />
-          
-          {/* 👇 2. QUAN TRỌNG: PHẢI CÓ DÒNG NÀY MỚI CHUYỂN TRANG ĐƯỢC 👇 */}
           <Route path="/dang-ky-tai-khoan" element={<RegisterPage />} />
 
-
-          {/* 3. Các trang nội bộ (Cần đăng nhập) */}
+          {/* 2. Các trang nội bộ (Cần đăng nhập & Có Layout chung) */}
           <Route element={<AuthGuard />}>
+            
+            {/* MainLayout bao bọc tất cả các route con bên dưới */}
             <Route path="/" element={<MainLayout />}>
               <Route index element={<ScheduleDashboard />} />
               <Route path="dang-ky" element={<ScheduleForm />} />
               <Route path="dia-diem" element={<LocationManagement />} />
-              <Route path="quan-ly" element={<AdminSchedulePage />} /> 
+              <Route path="quan-ly" element={<AdminSchedulePage />} />
               
               {/* Các route Người dùng */}
               <Route path="nguoi-dung/ca-nhan" element={<UserPage />} />
               <Route path="nguoi-dung/quan-ly" element={<AdminUsersPage type="active" />} />
               <Route path="nguoi-dung/can-duyet" element={<AdminUsersPage type="pending" />} />
               
-              <Route path="khoa-phong" element={<div>Trang Khoa/Phòng (chưa tạo)</div>} />
+              {/* 👇 ĐÃ SỬA: Gắn component DepartmentsPage vào đây */}
+              {/* Vì MainLayout đã ở trên, nên ở đây chỉ để <DepartmentsPage /> là đủ */}
+              <Route path="khoa-phong" element={<DepartmentsPage />} />
+              
             </Route>
           </Route>
           
-          {/* 4. Nếu không tìm thấy trang -> Quay về trang chủ (hoặc Login) */}
+          {/* 3. Nếu không tìm thấy trang -> Quay về trang chủ */}
           <Route path="*" element={<Navigate to="/" />} />
         </Routes>
       </Router>
