@@ -11,27 +11,13 @@ const adminMiddleware = require('./middleware/admin');
 
 const app = express();
 
-// const corsOptions = {
-//     origin: function (origin, callback) {
-//         const allowedOrigins = [
-//             'https://thankful-sea-0dc589b00.3.azurestaticapps.net', // ✅ ĐÚNG: b00 không phải bd8
-//             'http://localhost:3000',
-//             'http://localhost:5173'
-//         ];
-        
-//         if (!origin) return callback(null, true);
-        
-//         if (allowedOrigins.includes(origin)) {
-//             callback(null, true);
-//         } else {
-//             console.warn('⚠️ CORS blocked:', origin);
-//             callback(new Error('Not allowed by CORS'));
-//         }
-//     },
-//     credentials: true,
-//     methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-//     allowedHeaders: ['Content-Type', 'Authorization']
-// };
+// Tìm đoạn cấu hình CORS và sửa thành:
+const corsOptions = {
+    origin: '*', // Tạm thời cho phép tất cả để tránh lỗi (sau này sửa lại link web sau)
+    credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS']
+};
+app.use(cors(corsOptions));
 app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
