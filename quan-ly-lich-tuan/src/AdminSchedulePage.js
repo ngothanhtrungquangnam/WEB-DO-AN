@@ -145,7 +145,8 @@ const AdminSchedulePage = () => {
   };
 
 
-const adminColumns = [
+// --- CẤU HÌNH CỘT CHO BẢNG ---
+  const adminColumns = [
     { title: 'TT', key: 'tt', render: (text, record, index) => index + 1, width: 50, align: 'center' },
     
     { 
@@ -166,24 +167,33 @@ const adminColumns = [
 
     { title: 'Thời gian', key: 'thoiGian', width: 100, render: (r) => <b>{`${r.batDau.slice(0, 5)} - ${r.ketThuc.slice(0, 5)}`}</b> },
     
-    // 👇 ĐÃ CHỈNH SỬA ĐỘ RỘNG Ở ĐÂY 👇
     { 
         title: 'Nội dung', 
         dataIndex: 'noiDung', 
         key: 'noiDung', 
-        width: 300,  // Thu hẹp lại một chút
+        width: 300, 
         render: (text) => <div dangerouslySetInnerHTML={{ __html: text }} /> 
     },
     { 
         title: 'Thành phần', 
         dataIndex: 'thanhPhan', 
         key: 'thanhPhan', 
-        width: 380,  // Mở rộng ra nhiều (Cũ là 200)
+        width: 380, 
         render: (text) => <div dangerouslySetInnerHTML={{ __html: text }} /> 
     },
-    // 👆 KẾT THÚC CHỈNH SỬA 👆
 
     { title: 'Địa điểm', dataIndex: 'diaDiem', key: 'diaDiem', width: 120 },
+
+    // 👇👇👇 CỘT MỚI BẠN CẦN THÊM VÀO ĐÂY 👇👇👇
+    { 
+        title: 'Khoa / Đơn vị', 
+        dataIndex: 'donVi', 
+        key: 'donVi', 
+        width: 150,
+        render: (text) => <span style={{ color: '#096dd9', fontWeight: 500 }}>{text}</span>
+    },
+    // 👆👆👆 -------------------------------- 👆👆👆
+
     { title: 'Chủ trì', dataIndex: 'chuTriTen', key: 'chuTriTen', width: 120, render: (t) => <b>{t}</b> },
     { title: 'Đơn vị đề nghị', dataIndex: 'chuTriEmail', key: 'donViDeNghi', width: 150, ellipsis: true },
     

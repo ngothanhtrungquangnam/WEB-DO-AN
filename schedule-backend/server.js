@@ -405,24 +405,25 @@ if (currentUserRole !== 'admin' && currentUserRole !== 'manager' && !isMyCreatio
 // Đăng ký Lịch
 app.post('/api/schedules', authMiddleware, (req, res) => {
     // 👇 THÊM isBoSung VÀO ĐÂY
-    const { ngay, thoiGian, thuocPhuLuc, isBoSung, noiDung, thanhPhan, guiMail, diaDiem, chuTriTen, chuTriEmail } = req.body;
+ const { ngay, thoiGian, thuocPhuLuc, isBoSung, noiDung, thanhPhan, guiMail, diaDiem, chuTriTen, chuTriEmail, donVi } = req.body;
     
     const ngayFormatted = dayjs(ngay).format('YYYY-MM-DD');
     const batDauFormatted = thoiGian ? dayjs(thoiGian[0]).format('HH:mm:ss') : '07:00:00';
     const ketThucFormatted = thoiGian ? dayjs(thoiGian[1]).format('HH:mm:ss') : '11:00:00';
 
     // 👇 CẬP NHẬT CÂU SQL: THÊM CỘT isBoSung
-    const sql = `
+   const sql = `
         INSERT INTO schedules 
-        (ngay, batDau, ketThuc, thuocPhuLuc, isBoSung, noiDung, thanhPhan, guiMail, diaDiem, chuTriTen, chuTriEmail, trangThai) 
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'cho_duyet')
+        (ngay, batDau, ketThuc, thuocPhuLuc, isBoSung, noiDung, thanhPhan, guiMail, diaDiem, chuTriTen, chuTriEmail, donVi, trangThai) 
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'cho_duyet')
     `;
     
     // 👇 THÊM BIẾN isBoSung VÀO MẢNG VALUES
     const values = [
         ngayFormatted, batDauFormatted, ketThucFormatted, 
         thuocPhuLuc, isBoSung, // <-- Nhớ thêm vào đây
-        noiDung, thanhPhan, guiMail, diaDiem, chuTriTen, chuTriEmail
+        noiDung, thanhPhan, guiMail, diaDiem, chuTriTen, chuTriEmail,
+        donVi
     ];
 
     db.query(sql, values, (err, result) => {
