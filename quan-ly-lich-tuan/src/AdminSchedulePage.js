@@ -145,18 +145,15 @@ const AdminSchedulePage = () => {
   };
 
 
-  // --- CẤU HÌNH CỘT CHO BẢNG ---
-  const adminColumns = [
+const adminColumns = [
     { title: 'TT', key: 'tt', render: (text, record, index) => index + 1, width: 50, align: 'center' },
     
-    // Cột Mới: Thứ/Ngày (Quan trọng khi bỏ Tab)
     { 
         title: 'Thứ / Ngày', 
         key: 'ngay', 
-        width: 120,
+        width: 110,
         render: (r) => {
             const d = dayjs(r.ngay);
-            // Format: "Thứ 2 (25/11)"
             const thu = d.day() === 0 ? "Chủ Nhật" : `Thứ ${d.day() + 1}`;
             return (
                 <div>
@@ -168,8 +165,24 @@ const AdminSchedulePage = () => {
     },
 
     { title: 'Thời gian', key: 'thoiGian', width: 100, render: (r) => <b>{`${r.batDau.slice(0, 5)} - ${r.ketThuc.slice(0, 5)}`}</b> },
-    { title: 'Nội dung', dataIndex: 'noiDung', key: 'noiDung', render: (text) => <div dangerouslySetInnerHTML={{ __html: text }} /> },
-    { title: 'Thành phần', dataIndex: 'thanhPhan', key: 'thanhPhan', width: 200, render: (text) => <div dangerouslySetInnerHTML={{ __html: text }} /> },
+    
+    // 👇 ĐÃ CHỈNH SỬA ĐỘ RỘNG Ở ĐÂY 👇
+    { 
+        title: 'Nội dung', 
+        dataIndex: 'noiDung', 
+        key: 'noiDung', 
+        width: 300,  // Thu hẹp lại một chút
+        render: (text) => <div dangerouslySetInnerHTML={{ __html: text }} /> 
+    },
+    { 
+        title: 'Thành phần', 
+        dataIndex: 'thanhPhan', 
+        key: 'thanhPhan', 
+        width: 380,  // Mở rộng ra nhiều (Cũ là 200)
+        render: (text) => <div dangerouslySetInnerHTML={{ __html: text }} /> 
+    },
+    // 👆 KẾT THÚC CHỈNH SỬA 👆
+
     { title: 'Địa điểm', dataIndex: 'diaDiem', key: 'diaDiem', width: 120 },
     { title: 'Chủ trì', dataIndex: 'chuTriTen', key: 'chuTriTen', width: 120, render: (t) => <b>{t}</b> },
     { title: 'Đơn vị đề nghị', dataIndex: 'chuTriEmail', key: 'donViDeNghi', width: 150, ellipsis: true },
@@ -203,7 +216,6 @@ const AdminSchedulePage = () => {
       fixed: 'right',
       render: (record) => (
         <Space size="small">
-          {/* Nút Duyệt chỉ hiện khi chưa duyệt */}
           {record.trangThai === 'cho_duyet' && (
             <Button 
                 type="primary" 
