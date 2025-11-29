@@ -186,6 +186,13 @@ const columns = [
     { title: 'Nội Dung', dataIndex: 'noiDung', key: 'noiDung', className: 'column-header-custom', render: (text) => <div dangerouslySetInnerHTML={{ __html: text }} /> },
     { title: 'Thành Phần', dataIndex: 'thanhPhan', key: 'thanhPhan', className: 'column-header-custom', render: (text) => <div dangerouslySetInnerHTML={{ __html: text }} />, width: 300 },
     { title: 'Địa Điểm', dataIndex: 'diaDiem', key: 'diaDiem', width: 150, className: 'column-header-custom' },
+    { 
+        title: 'Khoa / Đơn vị', 
+        dataIndex: 'donVi', 
+        key: 'donVi', 
+        width: 140,
+        render: (text) => <span style={{ color: '#1890ff', fontWeight: 500 }}>{text}</span>
+    },
     { title: 'Chủ Trì', dataIndex: 'chuTriTen', key: 'chuTriTen', width: 150, className: 'column-header-custom', render: (text) => <b>{text}</b> }, 
     { title: 'Tài Khoản Chủ Trì', dataIndex: 'chuTriEmail', key: 'chuTriEmail', width: 150, className: 'column-header-custom', render: (text) => <span style={{color: '#2980b9', fontWeight: 500}}>{text}</span> },
     { 
