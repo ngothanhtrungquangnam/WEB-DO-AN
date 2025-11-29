@@ -15,7 +15,7 @@ import LoginPage from './LoginPage';
 import AuthGuard from './AuthGuard'; 
 import UserPage from './UserPage'; 
 import AdminUsersPage from './AdminUsersPage'; 
-import DepartmentsPage from './DepartmentsPage';
+
 // 👇 1. QUAN TRỌNG: PHẢI IMPORT FILE NÀY 👇
 import RegisterPage from './RegisterPage';
 
@@ -56,14 +56,7 @@ function App() {
               <Route path="nguoi-dung/quan-ly" element={<AdminUsersPage type="active" />} />
               <Route path="nguoi-dung/can-duyet" element={<AdminUsersPage type="pending" />} />
               
-           <Route 
-  path="/khoa-phong" 
-  element={
-    <MainLayout>
-       <DepartmentsPage /> 
-    </MainLayout>
-  } 
-/>
+              <Route path="khoa-phong" element={<div>Trang Khoa/Phòng (chưa tạo)</div>} />
             </Route>
           </Route>
           
