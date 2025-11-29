@@ -11,7 +11,7 @@ const DepartmentsPage = () => {
     // 👇 QUAN TRỌNG: Cấu hình đường dẫn API
     // Nếu chạy Local: dùng 'http://localhost:8080'
     // Nếu chạy trên Web Azure: Phải thay bằng link Backend thật của bạn (ví dụ: https://my-api.azurewebsites.net)
-    const BASE_URL = 'https://thankful-sea-0dc589b00.3.azurestaticapps.net'; 
+    const BASE_URL = 'http://localhost:8080';
 
     // 1. Hàm lấy danh sách khoa (GET)
     const fetchDepartments = async () => {

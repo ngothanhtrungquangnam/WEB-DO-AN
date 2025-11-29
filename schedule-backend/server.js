@@ -473,7 +473,7 @@ app.delete('/api/locations/:id', authMiddleware, adminMiddleware, (req, res) => 
 // =====================================================================================
 
 // 1. Lấy danh sách Khoa (Dùng cho Menu thả xuống ở Form đăng ký)
-app.get('/api/departments', authMiddleware, (req, res) => {
+app.get('/api/departments', (req, res) => { 
     db.query("SELECT * FROM departments ORDER BY name ASC", (err, results) => {
         if (err) {
             console.error("Lỗi lấy danh sách khoa:", err);
