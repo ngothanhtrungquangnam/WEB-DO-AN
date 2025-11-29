@@ -1,12 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { Table, message, Button, Select, Tabs, Space, Typography, Switch, Tag, Popconfirm, Tooltip } from 'antd';
-
+import { Table, message, Button, Select, Space, Typography, Switch, Tag, Popconfirm } from 'antd';
 import 'dayjs/locale/vi';
 import dayjs from 'dayjs';
 import isoWeek from 'dayjs/plugin/isoWeek'; 
 import weekOfYear from 'dayjs/plugin/weekOfYear';
 import isBetween from 'dayjs/plugin/isBetween';
-import { CheckOutlined, CloseOutlined, DeleteOutlined, FileTextOutlined } from '@ant-design/icons';
+import { DeleteOutlined, CheckOutlined, UnorderedListOutlined, FilterOutlined } from '@ant-design/icons';
 
 dayjs.extend(isoWeek);
 dayjs.extend(weekOfYear);
@@ -18,7 +17,7 @@ const { Title } = Typography;
 
 const BASE_API_URL = 'https://lich-tuan-api-bcg9d2aqfgbwbbcv.eastasia-01.azurewebsites.net/api'; 
 
-// --- 1. TỰ ĐỘNG SINH TUẦN (Để không bị lỗi ngày tháng) ---
+// --- TỰ ĐỘNG SINH TUẦN ---
 const generateWeeks = (year) => {
     const weeks = [];
     let currentDate = dayjs(`${year}-01-01`).startOf('week').add(1, 'day'); 
@@ -44,39 +43,36 @@ const currentWeekObj = weekOptions.find(w =>
 );
 const defaultWeekValue = currentWeekObj ? currentWeekObj.value : weekOptions[0].value;
 
-// Danh sách Tab Thứ (Key 1 = Thứ 2, Key 7 = CN)
-const dayTabs = [
-  { label: 'Thứ Hai', key: '1' }, 
-  { label: 'Thứ Ba', key: '2' },
-  { label: 'Thứ Tư', key: '3' },
-  { label: 'Thứ Năm', key: '4' },
-  { label: 'Thứ Sáu', key: '5' },
-  { label: 'Thứ Bảy', key: '6' },
-  { label: 'Chủ Nhật', key: '7' },
-];
 
 const AdminSchedulePage = () => {
   const [allSchedules, setAllSchedules] = useState([]); 
   const [loading, setLoading] = useState(true);
+  
+  // State điều khiển chế độ xem
+  // true: Xem tất cả (theo tuần) | false: Chỉ xem chờ duyệt (Mặc định)
+  const [viewAllMode, setViewAllMode] = useState(false); 
+  
   const [selectedWeek, setSelectedWeek] = useState(defaultWeekValue);
-  const [showCanceled, setShowCanceled] = useState(false); // Lọc đã hủy
 
   // --- 1. GỌI API LẤY DANH SÁCH LỊCH ---
-  const fetchSchedulesByWeek = () => {
+  const fetchSchedules = () => {
     setLoading(true);
-    const week = weekOptions.find(w => w.value === selectedWeek);
+    const token = localStorage.getItem('userToken');
     
     let apiUrl = new URL(`${BASE_API_URL}/schedules`);
-    if (week) {
-        apiUrl.searchParams.append('startDate', week.startDate);
-        apiUrl.searchParams.append('endDate', week.endDate);
-    }
-    // Nếu muốn xem lịch đã hủy
-    if (showCanceled) {
-        apiUrl.searchParams.append('isFilterCanceled', 'true');
-    }
 
-    const token = localStorage.getItem('userToken');
+    if (viewAllMode) {
+        // CHẾ ĐỘ XEM TẤT CẢ: Lọc theo Tuần đã chọn
+        const week = weekOptions.find(w => w.value === selectedWeek);
+        if (week) {
+            apiUrl.searchParams.append('startDate', week.startDate);
+            apiUrl.searchParams.append('endDate', week.endDate);
+        }
+        // Không lọc trạng thái -> Lấy hết (Đã duyệt, Hủy, Chờ duyệt...)
+    } else {
+        // CHẾ ĐỘ MẶC ĐỊNH: Chỉ lấy danh sách CHỜ DUYỆT (Bất kể ngày tháng)
+        apiUrl.searchParams.append('trangThai', 'cho_duyet');
+    }
 
     fetch(apiUrl.toString(), {
         method: 'GET',
@@ -90,9 +86,17 @@ const AdminSchedulePage = () => {
         return res.json();
       })
       .then(data => {
-        // Thêm key để React render
-        const dataWithKey = data.map(item => ({ ...item, key: item.id }));
-        setAllSchedules(dataWithKey); 
+        // Thêm key và sắp xếp theo ngày giờ
+        const sortedData = data
+            .map(item => ({ ...item, key: item.id }))
+            .sort((a, b) => {
+                // Sắp xếp: Ngày tăng dần -> Giờ bắt đầu tăng dần
+                const dateA = dayjs(a.ngay);
+                const dateB = dayjs(b.ngay);
+                if (!dateA.isSame(dateB)) return dateA.diff(dateB);
+                return a.batDau.localeCompare(b.batDau);
+            });
+        setAllSchedules(sortedData); 
       })
       .catch(error => {
         if (error.message === 'UNAUTHORIZED') message.error('Hết phiên đăng nhập.');
@@ -101,13 +105,13 @@ const AdminSchedulePage = () => {
       .finally(() => setLoading(false));
   };
 
-  // Gọi lại API khi đổi tuần hoặc đổi switch Hủy
+  // Gọi lại API khi đổi chế độ xem hoặc đổi tuần (chỉ khi ở chế độ xem tất cả)
   useEffect(() => {
-    fetchSchedulesByWeek();
-  }, [selectedWeek, showCanceled]);
+    fetchSchedules();
+  }, [viewAllMode, selectedWeek]);
 
 
-  // --- 2. HÀM DUYỆT LỊCH ---
+  // --- CÁC HÀM XỬ LÝ ---
   const handleApprove = (id) => {
     const token = localStorage.getItem('userToken');
     fetch(`${BASE_API_URL}/schedules/${id}/approve`, {
@@ -117,14 +121,13 @@ const AdminSchedulePage = () => {
     .then(res => {
         if (res.ok) {
             message.success('Đã duyệt lịch!');
-            fetchSchedulesByWeek(); // Tải lại bảng
+            fetchSchedules();
         } else {
             message.error('Lỗi khi duyệt.');
         }
     });
   };
 
-  // --- 3. HÀM TỪ CHỐI / XÓA LỊCH ---
   const handleDelete = (id) => {
     const token = localStorage.getItem('userToken');
     fetch(`${BASE_API_URL}/schedules/${id}`, {
@@ -134,7 +137,7 @@ const AdminSchedulePage = () => {
     .then(res => {
         if (res.ok) {
             message.success('Đã xóa/từ chối lịch!');
-            fetchSchedulesByWeek();
+            fetchSchedules();
         } else {
             message.error('Lỗi khi xóa.');
         }
@@ -145,80 +148,74 @@ const AdminSchedulePage = () => {
   // --- CẤU HÌNH CỘT CHO BẢNG ---
   const adminColumns = [
     { title: 'TT', key: 'tt', render: (text, record, index) => index + 1, width: 50, align: 'center' },
+    
+    // Cột Mới: Thứ/Ngày (Quan trọng khi bỏ Tab)
+    { 
+        title: 'Thứ / Ngày', 
+        key: 'ngay', 
+        width: 120,
+        render: (r) => {
+            const d = dayjs(r.ngay);
+            // Format: "Thứ 2 (25/11)"
+            const thu = d.day() === 0 ? "Chủ Nhật" : `Thứ ${d.day() + 1}`;
+            return (
+                <div>
+                    <div style={{fontWeight: 'bold', color: '#1890ff'}}>{thu}</div>
+                    <small>{d.format('DD/MM/YYYY')}</small>
+                </div>
+            );
+        }
+    },
+
     { title: 'Thời gian', key: 'thoiGian', width: 100, render: (r) => <b>{`${r.batDau.slice(0, 5)} - ${r.ketThuc.slice(0, 5)}`}</b> },
     { title: 'Nội dung', dataIndex: 'noiDung', key: 'noiDung', render: (text) => <div dangerouslySetInnerHTML={{ __html: text }} /> },
     { title: 'Thành phần', dataIndex: 'thanhPhan', key: 'thanhPhan', width: 200, render: (text) => <div dangerouslySetInnerHTML={{ __html: text }} /> },
     { title: 'Địa điểm', dataIndex: 'diaDiem', key: 'diaDiem', width: 120 },
     { title: 'Chủ trì', dataIndex: 'chuTriTen', key: 'chuTriTen', width: 120, render: (t) => <b>{t}</b> },
-    
     { title: 'Đơn vị đề nghị', dataIndex: 'chuTriEmail', key: 'donViDeNghi', width: 150, ellipsis: true },
     
     { 
-      title: 'ĐV duyệt', 
+      title: 'Trạng thái', 
       dataIndex: 'trangThai',
-      key: 'donViDuyet', 
-      width: 80,
+      key: 'trangThai', 
+      width: 100,
       align: 'center',
       render: (status) => {
-          if (status === 'da_duyet') return <div style={{ width: 20, height: 20, backgroundColor: '#52c41a', borderRadius: '50%', margin: 'auto' }}></div>;
-          if (status === 'huy') return <Tag color="red">Hủy</Tag>;
-          return <div style={{ width: 20, height: 20, backgroundColor: '#d9d9d9', borderRadius: '50%', margin: 'auto' }}></div>; // Màu xám cho chưa duyệt
+          if (status === 'da_duyet') return <Tag color="success">Đã duyệt</Tag>;
+          if (status === 'huy') return <Tag color="red">Đã hủy</Tag>;
+          return <Tag color="warning">Chờ duyệt</Tag>;
       }
     },
     
-  { 
+    { 
       title: 'Bổ sung', 
       dataIndex: 'isBoSung', 
       key: 'boSung', 
-      width: 90, 
+      width: 80, 
       align: 'center',
-      render: (val) => {
-          console.log("Giá trị Bổ sung:", val); // Log ra console để kiểm tra
-          // Dùng so sánh lỏng (==) để bắt được cả số 1 và chuỗi "1"
-          if (val == 1 || val === true) {
-              return <Tag color="red" style={{ fontWeight: 'bold' }}>BS</Tag>;
-          }
-          return null; 
-      }
+      render: (val) => (val == 1 || val === true) ? <Tag color="red">BS</Tag> : null
     },
 
-    // 2. CỘT PHỤ LỤC (Sửa thành hình tròn xanh)
     { 
-      title: 'Phụ lục', 
-      dataIndex: 'thuocPhuLuc', 
-      key: 'phuLuc', 
-      width: 90, 
-      align: 'center',
-      render: (val) => {
-          if (val == 1 || val === true) {
-              // 👇 ĐỔI TỪ ICON CHECK SANG HÌNH TRÒN XANH
-              return (
-                  <div style={{ 
-                      width: 20, 
-                      height: 20, 
-                      backgroundColor: '#52c41a', // Màu xanh lá (giống ĐV duyệt)
-                      borderRadius: '50%', 
-                      margin: 'auto' 
-                  }} />
-              );
-          }
-          return null; 
-      } 
-    },
-    { 
-      title: 'Hủy', 
+      title: 'Hành động', 
       key: 'hanhDong', 
       width: 140,
+      fixed: 'right',
       render: (record) => (
         <Space size="small">
           {/* Nút Duyệt chỉ hiện khi chưa duyệt */}
           {record.trangThai === 'cho_duyet' && (
-            <Popconfirm title="Duyệt lịch này?" onConfirm={() => handleApprove(record.id)}>
-                <Button type="primary" size="small" style={{ backgroundColor: '#52c41a' }}>Duyệt</Button>
-            </Popconfirm>
+            <Button 
+                type="primary" 
+                size="small" 
+                icon={<CheckOutlined />}
+                style={{ backgroundColor: '#52c41a', borderColor: '#52c41a' }}
+                onClick={() => handleApprove(record.id)}
+            >
+                Duyệt
+            </Button>
           )}
           
-          {/* Nút Hủy luôn hiện */}
           <Popconfirm title="Xóa/Từ chối lịch này?" onConfirm={() => handleDelete(record.id)} okType="danger">
              <Button size="small" danger icon={<DeleteOutlined />}>Xóa</Button>
           </Popconfirm>
@@ -226,30 +223,6 @@ const AdminSchedulePage = () => {
       )
     },
   ];
-
-  // --- TẠO DANH SÁCH TAB TỪ DỮ LIỆU ---
-  const renderTabItems = () => {
-      return dayTabs.map(dayTab => {
-          // Lọc lịch theo thứ (isoWeekday: 1=Thứ 2, 7=CN)
-          const daySchedules = allSchedules.filter(s => dayjs(s.ngay).isoWeekday().toString() === dayTab.key);
-          
-          return {
-              key: dayTab.key,
-              label: dayTab.label,
-              children: (
-                <Table
-                    columns={adminColumns}
-                    dataSource={daySchedules} 
-                    loading={loading}
-                    bordered
-                    size="middle"
-                    pagination={false} 
-                    locale={{ emptyText: 'Không có lịch nào trong ngày này' }}
-                />
-              )
-          };
-      });
-  };
 
   return (
     <div style={{ padding: '0px', backgroundColor: '#fff', minHeight: '100vh' }}>
@@ -260,51 +233,64 @@ const AdminSchedulePage = () => {
           justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 
       }}>
         <Title level={4} style={{ color: 'white', margin: 0 }}>
-          Danh sách lịch tuần
+          {viewAllMode ? 'Tất Cả Lịch Trình (Lịch Sử)' : 'Danh Sách Lịch Chờ Duyệt'}
         </Title>
-        <div style={{ color: 'red', fontWeight: 'bold', textShadow: '1px 1px 0px #fff' }}>
-          1 ngày 5 giờ 25 phút 2 giây
-        </div>
+        
+        {/* Nút Chuyển Chế Độ */}
+        <Space>
+            <span style={{color: 'white', fontWeight: 500}}>Chế độ xem: </span>
+            <Switch 
+                checkedChildren="Tất cả" 
+                unCheckedChildren="Chờ duyệt" 
+                checked={viewAllMode}
+                onChange={(val) => setViewAllMode(val)}
+            />
+        </Space>
       </div>
 
-      {/* Bộ lọc */}
-      <Space style={{ marginBottom: 16, padding: '0 20px', display: 'flex' }} wrap align="center">
-            <div>
-              <span className="filter-label" style={{fontWeight: 500, marginRight: 8}}>Năm học</span>
-              <Select defaultValue="2025-2026" style={{ width: 140 }}><Option value="2025-2026">2025 - 2026</Option></Select>
-            </div>
-            <div>
-              <span className="filter-label" style={{fontWeight: 500, marginRight: 8}}>Tuần học</span>
-              <Select 
-                value={selectedWeek} 
-                style={{ width: 300 }} 
-                onChange={(val) => setSelectedWeek(val)} 
-                showSearch
-                filterOption={(input, option) => (option?.label ?? '').toLowerCase().includes(input.toLowerCase())}
-              >
-                {weekOptions.map(week => (<Option key={week.value} value={week.value}>{week.label}</Option>))}
-              </Select>
-            </div>
-            <div>
-              <Space style={{marginLeft: 20}}>
-                <Switch 
-                    size="small" 
-                    checked={showCanceled} 
-                    onChange={(checked) => setShowCanceled(checked)} 
-                />
-                <span>Đã hủy</span>
-              </Space>
-            </div>
-      </Space>
+      {/* Bộ lọc - Chỉ hiện khi xem tất cả */}
+      {viewAllMode && (
+          <div style={{ padding: '0 20px', marginBottom: 16, backgroundColor: '#f0f2f5', padding: '10px', borderRadius: 4, margin: '0 20px 16px' }}>
+             <Space wrap align="center">
+                <FilterOutlined />
+                <span style={{fontWeight: 600}}>Bộ lọc tuần:</span>
+                <Select defaultValue="2025-2026" style={{ width: 120 }} disabled><Option value="2025-2026">2025 - 2026</Option></Select>
+                <Select 
+                    value={selectedWeek} 
+                    style={{ width: 280 }} 
+                    onChange={(val) => setSelectedWeek(val)} 
+                    showSearch
+                    filterOption={(input, option) => (option?.label ?? '').toLowerCase().includes(input.toLowerCase())}
+                >
+                    {weekOptions.map(week => (<Option key={week.value} value={week.value}>{week.label}</Option>))}
+                </Select>
+             </Space>
+          </div>
+      )}
 
-      {/* Tabs Thứ */}
+      {/* Bảng Danh Sách Duy Nhất */}
       <div style={{ padding: '0 20px' }}>
-          <Tabs 
-            defaultActiveKey="1" 
-            type="card"
-            items={renderTabItems()} 
+          <Table
+            columns={adminColumns}
+            dataSource={allSchedules} 
+            loading={loading}
+            bordered
+            size="middle"
+            pagination={{ pageSize: 10 }} 
+            locale={{ emptyText: viewAllMode ? 'Không có lịch nào trong tuần này' : 'Hiện không có lịch nào chờ duyệt 🎉' }}
+            rowClassName={(record) => record.trangThai === 'cho_duyet' ? 'highlight-row-pending' : ''}
           />
       </div>
+
+      {/* CSS nhỏ để làm nổi bật dòng chờ duyệt */}
+      <style>{`
+        .highlight-row-pending td {
+            background-color: #fff7e6 !important;
+        }
+        .highlight-row-pending:hover td {
+            background-color: #ffe7ba !important;
+        }
+      `}</style>
 
     </div>
   );
