@@ -14,34 +14,42 @@ const DepartmentsPage = () => {
     // 👇 LINK BACKEND AZURE CỦA BẠN (GIỮ NGUYÊN ĐỂ KHÔNG BỊ LỖI LẠI)
     const BASE_URL = 'https://lich-tuan-api-bcg9d2aqfgbwbbcv.eastasia-01.azurewebsites.net'; 
 
-// Thay thế đoạn fetchDepartments cũ bằng đoạn này:
+// Thay thế toàn bộ hàm fetchDepartments cũ bằng hàm này:
     const fetchDepartments = async () => {
         setLoading(true);
         try {
-            const token = localStorage.getItem('token') || localStorage.getItem('userToken');
+            // 👇 1. LẤY TOKEN (Trong ảnh bạn là 'userToken')
+            const token = localStorage.getItem('userToken') || localStorage.getItem('token');
             
-            // 👇 1. LẤY THÔNG TIN USER TỪ LOCAL STORAGE
-            // Lưu ý: Key lưu trữ phải khớp với lúc bạn Login (có thể là 'user' hoặc 'currentUser')
-            const userStr = localStorage.getItem('user'); 
+            // 👇 2. [SỬA LỖI TẠI ĐÂY] - ĐỔI 'user' THÀNH 'userData'
+            const userStr = localStorage.getItem('userData'); 
             
+            // Debug để kiểm tra
+            console.log("Raw user string:", userStr);
+
             if (userStr) {
                 const user = JSON.parse(userStr);
                 
-                // 👇 [SỬA LỖI Ở ĐÂY]: In ra để kiểm tra
-                console.log("🔍 Debug Role:", user.role);
+                // Debug xem role là gì
+                console.log("Role tìm thấy:", user.role);
 
-                // Chuyển hết về chữ thường để so sánh (Admin == admin)
+                // Chuyển về chữ thường để so sánh
                 const roleName = user.role ? user.role.toLowerCase() : '';
 
+                // Kiểm tra: admin hoặc manager
                 if (roleName === 'admin' || roleName === 'manager') {
-                    console.log("✅ Đã nhận diện là ADMIN");
+                    console.log("=> Set quyền: ADMIN");
                     setIsAdmin(true);
                 } else {
-                    console.log("❌ Nhận diện là USER (Do role không khớp)");
+                    console.log("=> Set quyền: USER");
                     setIsAdmin(false);
                 }
+            } else {
+                console.log("=> Không tìm thấy userData -> Mặc định là USER");
+                setIsAdmin(false);
             }
 
+            // Gọi API
             const res = await fetch(`${BASE_URL}/api/departments`, {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
