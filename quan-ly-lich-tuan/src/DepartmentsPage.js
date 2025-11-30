@@ -172,7 +172,7 @@ const DepartmentsPage = () => {
                             Thêm mới
                         </Button>
                     ) : (
-                        <Tag color="blue">Chế độ xem (User)</Tag>
+                        <Tag color="blue"></Tag>
                     )
                 }
             >
