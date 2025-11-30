@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { Table, Tag, message, Button, Select, Space, Typography, Switch, Row, Col, Modal, Tooltip, Popconfirm } from 'antd'; 
+import { Table, Tag, message, Button, Select, Space, Typography, Switch, Row, Col, Modal, Tooltip, Popconfirm, Card } from 'antd'; 
 import { Link } from 'react-router-dom';
-import { UnorderedListOutlined, EyeOutlined, DeleteOutlined, CalendarOutlined } from '@ant-design/icons';
+import { UnorderedListOutlined, EyeOutlined, DeleteOutlined, CalendarOutlined, FileTextOutlined, TeamOutlined } from '@ant-design/icons';
 import 'dayjs/locale/vi';
 import dayjs from 'dayjs';
 import isoWeek from 'dayjs/plugin/isoWeek'; 
@@ -64,10 +64,9 @@ const ScheduleDashboard = () => {
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [modalContent, setModalContent] = useState({ title: '', content: '' });
 
-  // 👇 LẤY USER ĐỂ CHECK QUYỀN (QUAN TRỌNG)
+  // Lấy thông tin user
   const userDataStr = localStorage.getItem('userData');
   const currentUser = userDataStr ? JSON.parse(userDataStr) : null;
-  // Kiểm tra xem có phải Admin/Manager không
   const isAdmin = currentUser?.role === 'admin' || currentUser?.role === 'manager';
 
   useEffect(() => {
@@ -187,7 +186,7 @@ const ScheduleDashboard = () => {
 
   const handleSwitchChange = (setter) => (checked) => setter(checked);
   
-  // --- CẤU HÌNH CỘT (FIX LỖI LOGIC TẠI ĐÂY) ---
+  // --- CẤU HÌNH CỘT ---
   const columns = [
     { 
         title: 'Thứ Ngày', 
@@ -215,69 +214,114 @@ const ScheduleDashboard = () => {
         className: 'column-header-custom',
         render: (record) => <b>{`${record.batDau.slice(0, 5)} - ${record.ketThuc.slice(0, 5)}`}</b> 
     },
-    // 👇👇 SỬA LOGIC NỘI DUNG 👇👇
+    // 👇👇 1. GIAO DIỆN NỘI DUNG ĐẸP HƠN 👇👇
     { 
         title: 'Nội Dung', 
         dataIndex: 'noiDung', 
         key: 'noiDung', 
         className: 'column-header-custom', 
         render: (text, record) => {
-            // 1. Check chắc chắn true/1
-            const isBoSung = record.isBoSung === 1 || record.isBoSung === true;
             const isPhuLuc = record.thuocPhuLuc === 1 || record.thuocPhuLuc === true;
+            const isBoSung = record.isBoSung === 1 || record.isBoSung === true;
+
+            const stripText = (html) => {
+                const tmp = document.createElement("DIV");
+                tmp.innerHTML = html;
+                return tmp.textContent || tmp.innerText || "";
+            };
+            const plainText = stripText(text);
+            const isLongText = plainText.length > 150;
 
             return (
                 <div>
-                    {/* 2. CHỈ HIỆN TAG ĐỎ NẾU LÀ ADMIN VÀ LÀ LỊCH BỔ SUNG */}
                     {isBoSung && isAdmin && (
-                        <Tag color="#ff4d4f" style={{ marginBottom: 5, fontWeight: 'bold' }}>LỊCH BỔ SUNG</Tag>
+                        <Tag color="#ff4d4f" style={{ marginBottom: 8, fontWeight: 'bold', display: 'block', width: 'fit-content' }}>LỊCH BỔ SUNG</Tag>
                     )}
 
-                    {/* 3. NẾU LÀ PHỤ LỤC -> RÚT GỌN THÀNH NÚT BẤM */}
                     {isPhuLuc ? (
-                        <div>
-                            <Tag color="geekblue" style={{ marginBottom: 5 }}>PHỤ LỤC</Tag>
-                            <div style={{ fontStyle: 'italic', color: '#888', marginBottom: 5, fontSize: '12px' }}>
-                                (Nội dung chi tiết xem tại phụ lục)
-                            </div>
+                        // Giao diện Phụ lục đẹp: Có khung nền, icon
+                        <div style={{ 
+                            backgroundColor: '#f0f5ff', 
+                            border: '1px dashed #adc6ff', 
+                            padding: '8px', 
+                            borderRadius: '6px' 
+                        }}>
+                            <Space align="center" style={{marginBottom: 4}}>
+                                <FileTextOutlined style={{color: '#1890ff'}}/>
+                                <Text strong style={{color: '#1d39c4', fontSize: '13px'}}>Nội dung trong phụ lục</Text>
+                            </Space>
                             <Button 
-                                type="dashed" 
+                                type="link" 
                                 size="small" 
-                                icon={<EyeOutlined />}
+                                style={{ paddingLeft: 0, height: 'auto' }}
                                 onClick={() => showDetailModal('Nội dung chi tiết', text)}
                             >
-                                Xem chi tiết
+                                Bấm để xem chi tiết &gt;&gt;
                             </Button>
                         </div>
+                    ) : isLongText ? (
+                        <div>
+                            <div style={{marginBottom: 5}}>
+                                {plainText.slice(0, 150)}...
+                            </div>
+                            <a onClick={() => showDetailModal('Nội dung chi tiết', text)} style={{fontSize: '12px', fontWeight: 500}}>
+                                Xem thêm
+                            </a>
+                        </div>
                     ) : (
-                        // Nếu không phải phụ lục -> Hiện bình thường
                         <div dangerouslySetInnerHTML={{ __html: text }} />
                     )}
                 </div>
             );
         } 
     },
-    // 👇👇 SỬA LOGIC THÀNH PHẦN (CŨNG RÚT GỌN NẾU LÀ PHỤ LỤC) 👇👇
+    // 👇👇 2. GIAO DIỆN THÀNH PHẦN ĐẸP HƠN 👇👇
     { 
         title: 'Thành Phần', 
         dataIndex: 'thanhPhan', 
         key: 'thanhPhan', 
         className: 'column-header-custom', 
-        width: 300,
+        width: 250,
         render: (text, record) => {
             const isPhuLuc = record.thuocPhuLuc === 1 || record.thuocPhuLuc === true;
             
+            const tmp = document.createElement("DIV");
+            tmp.innerHTML = text;
+            const plainText = tmp.textContent || tmp.innerText || "";
+            
             if (isPhuLuc) {
                 return (
-                    <Button 
-                        size="small" 
-                        icon={<EyeOutlined />}
-                        onClick={() => showDetailModal('Thành phần tham dự', text)}
-                    >
-                        Xem danh sách
-                    </Button>
+                    <div style={{ 
+                        backgroundColor: '#f6ffed', 
+                        border: '1px dashed #b7eb8f', 
+                        padding: '8px', 
+                        borderRadius: '6px' 
+                    }}>
+                        <Space align="center" style={{marginBottom: 4}}>
+                            <TeamOutlined style={{color: '#52c41a'}}/>
+                            <Text strong style={{color: '#389e0d', fontSize: '13px'}}>Danh sách đính kèm</Text>
+                        </Space>
+                        <Button 
+                            type="link" 
+                            size="small" 
+                            style={{ paddingLeft: 0, height: 'auto', color: '#52c41a' }}
+                            onClick={() => showDetailModal('Thành phần tham dự', text)}
+                        >
+                            Xem danh sách &gt;&gt;
+                        </Button>
+                    </div>
                 );
             }
+            
+            if (plainText.length > 100) {
+                 return (
+                    <div>
+                        {plainText.slice(0, 100)}... <br/>
+                        <a onClick={() => showDetailModal('Thành phần tham dự', text)}>Xem hết</a>
+                    </div>
+                );
+            }
+
             return <div dangerouslySetInnerHTML={{ __html: text }} />;
         }
     },
@@ -306,6 +350,7 @@ const ScheduleDashboard = () => {
             return null;
         }
     },
+    // 👇👇 3. LOGIC XÓA (CHỈ CHO XÓA KHI CHƯA DUYỆT) 👇👇
     { 
         title: 'Hành Động', 
         key: 'hanhDong', 
@@ -313,9 +358,10 @@ const ScheduleDashboard = () => {
         align: 'center',
         className: 'column-header-custom',
         render: (_, record) => {
-            // Giữ nguyên logic xóa (Chính chủ hoặc Admin)
             const isOwner = currentUser?.email === record.chuTriEmail;
-            const canDelete = isAdmin || isOwner;
+            // Admin thì xóa được tất cả
+            // User thì chỉ xóa được của mình VÀ chưa duyệt
+            const canDelete = isAdmin || (isOwner && record.trangThai !== 'da_duyet');
 
             return (
                 <div style={{display: 'flex', flexDirection: 'column', gap: '5px', alignItems: 'center'}}>
@@ -327,6 +373,7 @@ const ScheduleDashboard = () => {
                         />
                     </Tooltip>
 
+                    {/* Chỉ hiện nút Xóa nếu thỏa mãn điều kiện logic trên */}
                     {canDelete && (
                         <Popconfirm 
                             title="Xóa lịch này?" 
@@ -446,7 +493,7 @@ const ScheduleDashboard = () => {
                     fontWeight: '600', 
                     borderRadius: '20px', 
                     marginLeft: 15,
-                    marginBottom: 20,
+                    marginBottom: 20, 
                     fontSize: '13px',
                     boxShadow: '0 2px 0 rgba(0,0,0,0.02)'
                 }}
