@@ -1,8 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { Table, Tag, message, Button, Select, Space, Typography, Switch, Row, Col, Modal, Tooltip } from 'antd'; 
+import { Table, Tag, message, Button, Select, Space, Typography, Switch, Row, Col, Modal, Tooltip, Popconfirm } from 'antd'; 
 import { Link } from 'react-router-dom';
-// 👇 IMPORT THÊM ICON MỚI
-import { UnorderedListOutlined, EyeOutlined } from '@ant-design/icons';
+import { UnorderedListOutlined, EyeOutlined, DeleteOutlined, CalendarOutlined } from '@ant-design/icons';
 import 'dayjs/locale/vi';
 import dayjs from 'dayjs';
 import isoWeek from 'dayjs/plugin/isoWeek'; 
@@ -19,7 +18,6 @@ const { Title, Text } = Typography;
 
 const BASE_API_URL = 'https://lich-tuan-api-bcg9d2aqfgbwbbcv.eastasia-01.azurewebsites.net/api';
 
-// --- 1. HÀM TỰ ĐỘNG SINH DANH SÁCH TUẦN ---
 const generateWeeks = (year) => {
     const weeks = [];
     let currentDate = dayjs(`${year}-01-01`).startOf('week').add(1, 'day'); 
@@ -29,14 +27,7 @@ const generateWeeks = (year) => {
         const startDate = currentDate.format('YYYY-MM-DD');
         const endDate = currentDate.add(6, 'day').format('YYYY-MM-DD');
         const labelStr = `Tuần ${i}: ${currentDate.format('DD-MM-YYYY')} - ${currentDate.add(6, 'day').format('DD-MM-YYYY')}`; 
-        
-        weeks.push({
-            label: labelStr,
-            value: `${year}-W${i}`,
-            startDate: startDate,
-            endDate: endDate
-        });
-        
+        weeks.push({ label: labelStr, value: `${year}-W${i}`, startDate, endDate });
         currentDate = currentDate.add(1, 'week');
         if (currentDate.year() > year && i > 50) break; 
     }
@@ -56,7 +47,6 @@ const currentWeekObj = weekOptions.find(w =>
 );
 const defaultWeekValue = currentWeekObj ? currentWeekObj.value : weekOptions[0].value;
 
-
 const ScheduleDashboard = () => {
   const [schedules, setSchedules] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -71,13 +61,13 @@ const ScheduleDashboard = () => {
   const [filterUnit, setFilterUnit] = useState(false);
   const [filterCanceled, setFilterCanceled] = useState(false);
 
-  // 👇 STATE MỚI: QUẢN LÝ POPUP PHỤ LỤC
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [modalContent, setModalContent] = useState({ title: '', content: '' });
 
-  // 👇 LẤY THÔNG TIN USER (Để check quyền Admin cho phần Bổ sung)
+  // 👇 LẤY USER ĐỂ CHECK QUYỀN (QUAN TRỌNG)
   const userDataStr = localStorage.getItem('userData');
   const currentUser = userDataStr ? JSON.parse(userDataStr) : null;
+  // Kiểm tra xem có phải Admin/Manager không
   const isAdmin = currentUser?.role === 'admin' || currentUser?.role === 'manager';
 
   useEffect(() => {
@@ -87,7 +77,7 @@ const ScheduleDashboard = () => {
           fetch(`${BASE_API_URL}/active-users`, { headers: { 'Authorization': `Bearer ${token}` } })
           .then(res => res.json())
           .then(data => setUserOptions(data))
-          .catch(err => console.error("Lỗi tải danh sách chủ trì:", err));
+          .catch(err => console.error(err));
       };
       fetchHosts();
   }, []);
@@ -100,7 +90,7 @@ const ScheduleDashboard = () => {
       setFilterUnit(false);
       setFilterCanceled(false);
       setSelectedWeek(defaultWeekValue); 
-      message.info('Đã xóa bộ lọc, quay về mặc định.');
+      message.info('Đã xóa bộ lọc.');
   };
 
   const handleShowAllList = () => {
@@ -108,10 +98,32 @@ const ScheduleDashboard = () => {
       setFilterMyCreation(false);
       setFilterUnit(false);
       setFilterCanceled(false);
-      message.success('Đang hiển thị tất cả các lịch.');
+      message.success('Đang hiển thị tất cả.');
   };
 
-  // 👇 HÀM HIỂN THỊ POPUP
+  const handleDeleteSchedule = (id) => {
+      const token = localStorage.getItem('userToken');
+      fetch(`${BASE_API_URL}/schedules/${id}`, {
+          method: 'DELETE',
+          headers: { 'Authorization': `Bearer ${token}` }
+      })
+      .then(res => {
+          if (res.ok) {
+              message.success('Đã xóa lịch thành công!');
+              fetchSchedules(selectedWeek, selectedHost, selectedStatus, {
+                  isMySchedule: filterMySchedule,
+                  isMyCreation: filterMyCreation,
+                  isFilterUnit: filterUnit,
+                  isFilterCanceled: filterCanceled,
+              });
+          } else {
+              if (res.status === 403) message.error('Bạn không có quyền xóa lịch này!');
+              else message.error('Lỗi khi xóa lịch.');
+          }
+      })
+      .catch(() => message.error('Lỗi kết nối server!'));
+  };
+
   const showDetailModal = (title, content) => {
       setModalContent({ title, content });
       setIsModalVisible(true);
@@ -175,7 +187,7 @@ const ScheduleDashboard = () => {
 
   const handleSwitchChange = (setter) => (checked) => setter(checked);
   
- // --- CẤU HÌNH CỘT (ĐÃ SỬA LỖI RÚT GỌN NỘI DUNG) ---
+  // --- CẤU HÌNH CỘT (FIX LỖI LOGIC TẠI ĐÂY) ---
   const columns = [
     { 
         title: 'Thứ Ngày', 
@@ -203,96 +215,69 @@ const ScheduleDashboard = () => {
         className: 'column-header-custom',
         render: (record) => <b>{`${record.batDau.slice(0, 5)} - ${record.ketThuc.slice(0, 5)}`}</b> 
     },
-    // 👇👇 CẬP NHẬT CỘT NỘI DUNG: RÚT GỌN THÔNG MINH 👇👇
+    // 👇👇 SỬA LOGIC NỘI DUNG 👇👇
     { 
         title: 'Nội Dung', 
         dataIndex: 'noiDung', 
         key: 'noiDung', 
         className: 'column-header-custom', 
         render: (text, record) => {
-            // Kiểm tra kỹ: MySQL trả về 1, React trả về true -> Check cả 2
-            const isPhuLuc = record.thuocPhuLuc === 1 || record.thuocPhuLuc === true;
+            // 1. Check chắc chắn true/1
             const isBoSung = record.isBoSung === 1 || record.isBoSung === true;
-
-            // Hàm cắt ngắn text nếu quá dài (cho trường hợp không phải phụ lục)
-            const stripText = (html) => {
-                const tmp = document.createElement("DIV");
-                tmp.innerHTML = html;
-                return tmp.textContent || tmp.innerText || "";
-            };
-            const plainText = stripText(text);
-            const isLongText = plainText.length > 150; // Dài hơn 150 ký tự coi là dài
+            const isPhuLuc = record.thuocPhuLuc === 1 || record.thuocPhuLuc === true;
 
             return (
                 <div>
-                    {/* Tag Bổ Sung */}
-                    {isBoSung && (
+                    {/* 2. CHỈ HIỆN TAG ĐỎ NẾU LÀ ADMIN VÀ LÀ LỊCH BỔ SUNG */}
+                    {isBoSung && isAdmin && (
                         <Tag color="#ff4d4f" style={{ marginBottom: 5, fontWeight: 'bold' }}>LỊCH BỔ SUNG</Tag>
                     )}
 
-                    {/* Xử lý hiển thị */}
+                    {/* 3. NẾU LÀ PHỤ LỤC -> RÚT GỌN THÀNH NÚT BẤM */}
                     {isPhuLuc ? (
-                        // TRƯỜNG HỢP 1: LÀ PHỤ LỤC -> Luôn ẩn, hiện nút xem
                         <div>
                             <Tag color="geekblue" style={{ marginBottom: 5 }}>PHỤ LỤC</Tag>
                             <div style={{ fontStyle: 'italic', color: '#888', marginBottom: 5, fontSize: '12px' }}>
                                 (Nội dung chi tiết xem tại phụ lục)
                             </div>
-                            <Button type="dashed" size="small" icon={<EyeOutlined />} onClick={() => showDetailModal('Nội dung chi tiết', text)}>
+                            <Button 
+                                type="dashed" 
+                                size="small" 
+                                icon={<EyeOutlined />}
+                                onClick={() => showDetailModal('Nội dung chi tiết', text)}
+                            >
                                 Xem chi tiết
                             </Button>
                         </div>
-                    ) : isLongText ? (
-                        // TRƯỜNG HỢP 2: KHÔNG PHẢI PHỤ LỤC NHƯNG DÀI QUÁ -> Cắt bớt
-                        <div>
-                            <div style={{marginBottom: 5}}>
-                                {plainText.slice(0, 150)}...
-                            </div>
-                            <a onClick={() => showDetailModal('Nội dung chi tiết', text)} style={{fontSize: '12px'}}>
-                                Xem thêm
-                            </a>
-                        </div>
                     ) : (
-                        // TRƯỜNG HỢP 3: NGẮN GỌN -> Hiện bình thường
+                        // Nếu không phải phụ lục -> Hiện bình thường
                         <div dangerouslySetInnerHTML={{ __html: text }} />
                     )}
                 </div>
             );
         } 
     },
-    // 👇👇 CẬP NHẬT CỘT THÀNH PHẦN: RÚT GỌN TƯƠNG TỰ 👇👇
+    // 👇👇 SỬA LOGIC THÀNH PHẦN (CŨNG RÚT GỌN NẾU LÀ PHỤ LỤC) 👇👇
     { 
         title: 'Thành Phần', 
         dataIndex: 'thanhPhan', 
         key: 'thanhPhan', 
         className: 'column-header-custom', 
-        width: 250,
+        width: 300,
         render: (text, record) => {
             const isPhuLuc = record.thuocPhuLuc === 1 || record.thuocPhuLuc === true;
             
-            // Lọc text thuần để check độ dài
-            const tmp = document.createElement("DIV");
-            tmp.innerHTML = text;
-            const plainText = tmp.textContent || tmp.innerText || "";
-            
             if (isPhuLuc) {
                 return (
-                    <Button size="small" icon={<EyeOutlined />} onClick={() => showDetailModal('Thành phần tham dự', text)}>
+                    <Button 
+                        size="small" 
+                        icon={<EyeOutlined />}
+                        onClick={() => showDetailModal('Thành phần tham dự', text)}
+                    >
                         Xem danh sách
                     </Button>
                 );
             }
-            
-            // Nếu danh sách quá dài (trên 100 ký tự) cũng rút gọn luôn
-            if (plainText.length > 100) {
-                 return (
-                    <div>
-                        {plainText.slice(0, 100)}... <br/>
-                        <a onClick={() => showDetailModal('Thành phần tham dự', text)}>Xem hết</a>
-                    </div>
-                );
-            }
-
             return <div dangerouslySetInnerHTML={{ __html: text }} />;
         }
     },
@@ -328,8 +313,8 @@ const ScheduleDashboard = () => {
         align: 'center',
         className: 'column-header-custom',
         render: (_, record) => {
+            // Giữ nguyên logic xóa (Chính chủ hoặc Admin)
             const isOwner = currentUser?.email === record.chuTriEmail;
-            const isAdmin = currentUser?.role === 'admin' || currentUser?.role === 'manager';
             const canDelete = isAdmin || isOwner;
 
             return (
@@ -503,7 +488,6 @@ const ScheduleDashboard = () => {
         style={{ border: '1px solid #d9d9d9' }}
       />
 
-      {/* 👇 MODAL HIỂN THỊ NỘI DUNG PHỤ LỤC 👇 */}
       <Modal
         title={modalContent.title}
         open={isModalVisible}
