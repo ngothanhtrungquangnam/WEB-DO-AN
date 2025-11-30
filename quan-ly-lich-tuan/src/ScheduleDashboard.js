@@ -1,8 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { Table, Tag, message, Button, Select, Space, Typography, Switch, Row, Col } from 'antd'; 
+import { Table, Tag, message, Button, Select, Space, Typography, Switch, Row, Col, Modal, Tooltip, Popconfirm } from 'antd'; 
 import { Link } from 'react-router-dom';
-// 👇 1. IMPORT THÊM ICON MỚI
-import { UnorderedListOutlined } from '@ant-design/icons';
+import { UnorderedListOutlined, EyeOutlined, DeleteOutlined, CalendarOutlined } from '@ant-design/icons';
 import 'dayjs/locale/vi';
 import dayjs from 'dayjs';
 import isoWeek from 'dayjs/plugin/isoWeek'; 
@@ -19,7 +18,6 @@ const { Title, Text } = Typography;
 
 const BASE_API_URL = 'https://lich-tuan-api-bcg9d2aqfgbwbbcv.eastasia-01.azurewebsites.net/api';
 
-// --- 1. HÀM TỰ ĐỘNG SINH DANH SÁCH TUẦN ---
 const generateWeeks = (year) => {
     const weeks = [];
     let currentDate = dayjs(`${year}-01-01`).startOf('week').add(1, 'day'); 
@@ -71,6 +69,14 @@ const ScheduleDashboard = () => {
   const [filterUnit, setFilterUnit] = useState(false);
   const [filterCanceled, setFilterCanceled] = useState(false);
 
+  // 👇 STATE MỚI: QUẢN LÝ POPUP PHỤ LỤC
+  const [isModalVisible, setIsModalVisible] = useState(false);
+  const [modalContent, setModalContent] = useState({ title: '', content: '' });
+
+  // Lấy thông tin user hiện tại để check quyền xóa
+  const userDataStr = localStorage.getItem('userData');
+  const currentUser = userDataStr ? JSON.parse(userDataStr) : null;
+
   useEffect(() => {
       const fetchHosts = () => {
           const token = localStorage.getItem('userToken');
@@ -100,6 +106,35 @@ const ScheduleDashboard = () => {
       setFilterUnit(false);
       setFilterCanceled(false);
       message.success('Đang hiển thị tất cả các lịch.');
+  };
+
+  const handleDeleteSchedule = (id) => {
+      const token = localStorage.getItem('userToken');
+      fetch(`${BASE_API_URL}/schedules/${id}`, {
+          method: 'DELETE',
+          headers: { 'Authorization': `Bearer ${token}` }
+      })
+      .then(res => {
+          if (res.ok) {
+              message.success('Đã xóa lịch thành công!');
+              fetchSchedules(selectedWeek, selectedHost, selectedStatus, {
+                  isMySchedule: filterMySchedule,
+                  isMyCreation: filterMyCreation,
+                  isFilterUnit: filterUnit,
+                  isFilterCanceled: filterCanceled,
+              });
+          } else {
+              if (res.status === 403) message.error('Bạn không có quyền xóa lịch này!');
+              else message.error('Lỗi khi xóa lịch.');
+          }
+      })
+      .catch(() => message.error('Lỗi kết nối server!'));
+  };
+
+  // 👇 HÀM HIỂN THỊ POPUP PHỤ LỤC
+  const showDetailModal = (title, content) => {
+      setModalContent({ title, content });
+      setIsModalVisible(true);
   };
 
   const fetchSchedules = (weekValue, hostValue, statusValue, filters) => {
@@ -187,8 +222,65 @@ const ScheduleDashboard = () => {
         className: 'column-header-custom',
         render: (record) => <b>{`${record.batDau.slice(0, 5)} - ${record.ketThuc.slice(0, 5)}`}</b> 
     },
-    { title: 'Nội Dung', dataIndex: 'noiDung', key: 'noiDung', className: 'column-header-custom', render: (text) => <div dangerouslySetInnerHTML={{ __html: text }} /> },
-    { title: 'Thành Phần', dataIndex: 'thanhPhan', key: 'thanhPhan', className: 'column-header-custom', render: (text) => <div dangerouslySetInnerHTML={{ __html: text }} />, width: 300 },
+    // 👇👇 CẬP NHẬT CỘT NỘI DUNG: XỬ LÝ PHỤ LỤC & BỔ SUNG 👇👇
+    { 
+        title: 'Nội Dung', 
+        dataIndex: 'noiDung', 
+        key: 'noiDung', 
+        className: 'column-header-custom', 
+        render: (text, record) => (
+            <div>
+                {/* 1. Lịch Bổ Sung -> Hiện Tag Đỏ */}
+                {record.isBoSung && (
+                    <Tag color="#ff4d4f" style={{ marginBottom: 5, fontWeight: 'bold' }}>LỊCH BỔ SUNG</Tag>
+                )}
+
+                {/* 2. Thuộc Phụ Lục -> Ẩn nội dung dài, Hiện nút Xem chi tiết */}
+                {record.thuocPhuLuc ? (
+                    <div>
+                        <Tag color="geekblue" style={{ marginBottom: 5 }}>PHỤ LỤC</Tag>
+                        <div style={{ fontStyle: 'italic', color: '#888', marginBottom: 5 }}>
+                            (Nội dung chi tiết trong phụ lục)
+                        </div>
+                        <Button 
+                            type="primary" 
+                            size="small" 
+                            ghost 
+                            icon={<EyeOutlined />}
+                            onClick={() => showDetailModal('Nội dung chi tiết', text)}
+                        >
+                            Xem nội dung
+                        </Button>
+                    </div>
+                ) : (
+                    // Nếu không phải phụ lục -> Hiện bình thường
+                    <div dangerouslySetInnerHTML={{ __html: text }} />
+                )}
+            </div>
+        ) 
+    },
+    // 👇👇 CẬP NHẬT CỘT THÀNH PHẦN: XỬ LÝ PHỤ LỤC 👇👇
+    { 
+        title: 'Thành Phần', 
+        dataIndex: 'thanhPhan', 
+        key: 'thanhPhan', 
+        className: 'column-header-custom', 
+        width: 300,
+        render: (text, record) => {
+            if (record.thuocPhuLuc) {
+                return (
+                    <Button 
+                        size="small" 
+                        icon={<EyeOutlined />}
+                        onClick={() => showDetailModal('Thành phần tham dự', text)}
+                    >
+                        Xem danh sách
+                    </Button>
+                );
+            }
+            return <div dangerouslySetInnerHTML={{ __html: text }} />;
+        }
+    },
     { title: 'Địa Điểm', dataIndex: 'diaDiem', key: 'diaDiem', width: 150, className: 'column-header-custom' },
     { 
         title: 'Khoa / Đơn vị', 
@@ -217,16 +309,44 @@ const ScheduleDashboard = () => {
     { 
         title: 'Hành Động', 
         key: 'hanhDong', 
-        width: 180,
+        width: 120,
+        align: 'center',
         className: 'column-header-custom',
-        render: () => (
-            <Button 
-                size="small" 
-                style={{ backgroundColor: '#6c5ce7', color: '#fff', borderColor: '#6c5ce7', borderRadius: '4px', fontWeight: 500 }}
-            >
-                Thêm vào MS Outlook
-            </Button>
-        ) 
+        render: (_, record) => {
+            const isOwner = currentUser?.email === record.chuTriEmail;
+            const isAdmin = currentUser?.role === 'admin' || currentUser?.role === 'manager';
+            const canDelete = isAdmin || isOwner;
+
+            return (
+                <div style={{display: 'flex', flexDirection: 'column', gap: '5px', alignItems: 'center'}}>
+                    <Tooltip title="Thêm vào Outlook">
+                        <Button 
+                            size="small" 
+                            icon={<CalendarOutlined />}
+                            style={{ backgroundColor: '#6c5ce7', color: '#fff', borderColor: '#6c5ce7', width: '100%' }}
+                        />
+                    </Tooltip>
+
+                    {canDelete && (
+                        <Popconfirm 
+                            title="Bạn có chắc muốn xóa lịch này không?"
+                            onConfirm={() => handleDeleteSchedule(record.id)}
+                            okText="Xóa"
+                            cancelText="Hủy"
+                        >
+                            <Button 
+                                size="small" 
+                                danger 
+                                icon={<DeleteOutlined />}
+                                style={{ width: '100%' }}
+                            >
+                                Xóa
+                            </Button>
+                        </Popconfirm>
+                    )}
+                </div>
+            );
+        } 
     },
   ];
 
@@ -322,7 +442,6 @@ const ScheduleDashboard = () => {
               <span style={{color: '#555'}}>Đã hủy</span>
             </Space>
             
-            {/* 👇👇👇 NÚT "HIỆN TẤT CẢ" ĐÃ ĐƯỢC LÀM ĐẸP TẠI ĐÂY 👇👇👇 */}
             <Button 
                 icon={<UnorderedListOutlined />}
                 size="middle"
@@ -332,8 +451,9 @@ const ScheduleDashboard = () => {
                     color: '#d46b08', 
                     border: '1px solid #d46b08', 
                     fontWeight: '600', 
-                    borderRadius: '20px', // Bo tròn đẹp
+                    borderRadius: '20px', 
                     marginLeft: 15,
+                    marginBottom: 20,
                     fontSize: '13px',
                     boxShadow: '0 2px 0 rgba(0,0,0,0.02)'
                 }}
@@ -374,6 +494,25 @@ const ScheduleDashboard = () => {
         pagination={false} 
         style={{ border: '1px solid #d9d9d9' }}
       />
+
+      {/* 👇 MODAL HIỂN THỊ NỘI DUNG PHỤ LỤC 👇 */}
+      <Modal
+        title={modalContent.title}
+        open={isModalVisible}
+        onOk={() => setIsModalVisible(false)}
+        onCancel={() => setIsModalVisible(false)}
+        footer={[
+            <Button key="close" type="primary" onClick={() => setIsModalVisible(false)}>
+                Đóng
+            </Button>
+        ]}
+        width={800} // Modal rộng rãi để đọc dễ
+      >
+        <div 
+            style={{ maxHeight: '60vh', overflowY: 'auto', paddingRight: '10px' }}
+            dangerouslySetInnerHTML={{ __html: modalContent.content }} 
+        />
+      </Modal>
     </div>
   );
 };
