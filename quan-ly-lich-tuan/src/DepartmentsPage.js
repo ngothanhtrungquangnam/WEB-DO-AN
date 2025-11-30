@@ -14,33 +14,33 @@ const DepartmentsPage = () => {
     // 👇 LINK BACKEND AZURE CỦA BẠN (GIỮ NGUYÊN ĐỂ KHÔNG BỊ LỖI LẠI)
     const BASE_URL = 'https://lich-tuan-api-bcg9d2aqfgbwbbcv.eastasia-01.azurewebsites.net'; 
 
-    // 1. Kiểm tra quyền và Lấy danh sách khoa
-  // Thay thế hàm fetchDepartments cũ bằng hàm này:
+// Thay thế đoạn fetchDepartments cũ bằng đoạn này:
     const fetchDepartments = async () => {
         setLoading(true);
         try {
             const token = localStorage.getItem('token') || localStorage.getItem('userToken');
-            const userStr = localStorage.getItem('user'); // Lấy thông tin user
             
-            // --- BẮT ĐẦU ĐOẠN KIỂM TRA QUYỀN MỚI ---
+            // 👇 1. LẤY THÔNG TIN USER TỪ LOCAL STORAGE
+            // Lưu ý: Key lưu trữ phải khớp với lúc bạn Login (có thể là 'user' hoặc 'currentUser')
+            const userStr = localStorage.getItem('user'); 
+            
             if (userStr) {
                 const user = JSON.parse(userStr);
                 
-                // In ra Console để bạn kiểm tra xem máy tính đang đọc được gì
-                console.log("CHECK QUYỀN - User Role đang là:", user.role);
+                // 👇 [SỬA LỖI Ở ĐÂY]: In ra để kiểm tra
+                console.log("🔍 Debug Role:", user.role);
 
-                // Chuyển role về chữ thường để so sánh cho chắc chắn
-                const role = user.role ? user.role.toLowerCase() : '';
+                // Chuyển hết về chữ thường để so sánh (Admin == admin)
+                const roleName = user.role ? user.role.toLowerCase() : '';
 
-                if (role === 'admin' || role === 'manager') {
-                    console.log("=> Máy tính hiểu là: ADMIN (Hiện nút Thêm/Xóa)");
+                if (roleName === 'admin' || roleName === 'manager') {
+                    console.log("✅ Đã nhận diện là ADMIN");
                     setIsAdmin(true);
                 } else {
-                    console.log("=> Máy tính hiểu là: USER (Ẩn nút Thêm/Xóa)");
+                    console.log("❌ Nhận diện là USER (Do role không khớp)");
                     setIsAdmin(false);
                 }
             }
-            // --- KẾT THÚC ĐOẠN KIỂM TRA ---
 
             const res = await fetch(`${BASE_URL}/api/departments`, {
                 headers: { 'Authorization': `Bearer ${token}` }
@@ -56,7 +56,6 @@ const DepartmentsPage = () => {
             setLoading(false);
         }
     };
-
     useEffect(() => {
         fetchDepartments();
     }, []);
