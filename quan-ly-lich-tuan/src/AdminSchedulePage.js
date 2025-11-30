@@ -1,11 +1,19 @@
 import React, { useState, useEffect } from 'react';
-import { Table, message, Button, Select, Space, Typography, Switch, Tag, Popconfirm } from 'antd';
+import { Table, message, Button, Select, Space, Typography, Switch, Tag, Popconfirm, Modal, Input } from 'antd';
 import 'dayjs/locale/vi';
 import dayjs from 'dayjs';
 import isoWeek from 'dayjs/plugin/isoWeek'; 
 import weekOfYear from 'dayjs/plugin/weekOfYear';
 import isBetween from 'dayjs/plugin/isBetween';
-import { DeleteOutlined, CheckOutlined, UnorderedListOutlined, FilterOutlined } from '@ant-design/icons';
+import { 
+    DeleteOutlined, 
+    CheckOutlined, 
+    FilterOutlined, 
+    EyeOutlined, 
+    FileTextOutlined, 
+    TeamOutlined,
+    CloseCircleOutlined 
+} from '@ant-design/icons';
 
 dayjs.extend(isoWeek);
 dayjs.extend(weekOfYear);
@@ -13,7 +21,8 @@ dayjs.extend(isBetween);
 dayjs.locale('vi');
 
 const { Option } = Select;
-const { Title } = Typography;
+const { Title, Text } = Typography;
+const { TextArea } = Input;
 
 const BASE_API_URL = 'https://lich-tuan-api-bcg9d2aqfgbwbbcv.eastasia-01.azurewebsites.net/api'; 
 
@@ -49,10 +58,16 @@ const AdminSchedulePage = () => {
   const [loading, setLoading] = useState(true);
   
   // State điều khiển chế độ xem
-  // true: Xem tất cả (theo tuần) | false: Chỉ xem chờ duyệt (Mặc định)
   const [viewAllMode, setViewAllMode] = useState(false); 
-  
   const [selectedWeek, setSelectedWeek] = useState(defaultWeekValue);
+
+  // 👇 STATE MỚI: Modal Xem chi tiết & Modal Từ chối
+  const [isDetailModalVisible, setIsDetailModalVisible] = useState(false);
+  const [detailContent, setDetailContent] = useState({ title: '', content: '' });
+
+  const [isRejectModalVisible, setIsRejectModalVisible] = useState(false);
+  const [rejectReason, setRejectReason] = useState('');
+  const [selectedScheduleId, setSelectedScheduleId] = useState(null);
 
   // --- 1. GỌI API LẤY DANH SÁCH LỊCH ---
   const fetchSchedules = () => {
@@ -62,15 +77,14 @@ const AdminSchedulePage = () => {
     let apiUrl = new URL(`${BASE_API_URL}/schedules`);
 
     if (viewAllMode) {
-        // CHẾ ĐỘ XEM TẤT CẢ: Lọc theo Tuần đã chọn
+        // CHẾ ĐỘ XEM TẤT CẢ
         const week = weekOptions.find(w => w.value === selectedWeek);
         if (week) {
             apiUrl.searchParams.append('startDate', week.startDate);
             apiUrl.searchParams.append('endDate', week.endDate);
         }
-        // Không lọc trạng thái -> Lấy hết (Đã duyệt, Hủy, Chờ duyệt...)
     } else {
-        // CHẾ ĐỘ MẶC ĐỊNH: Chỉ lấy danh sách CHỜ DUYỆT (Bất kể ngày tháng)
+        // CHẾ ĐỘ MẶC ĐỊNH: CHỜ DUYỆT
         apiUrl.searchParams.append('trangThai', 'cho_duyet');
     }
 
@@ -86,11 +100,9 @@ const AdminSchedulePage = () => {
         return res.json();
       })
       .then(data => {
-        // Thêm key và sắp xếp theo ngày giờ
         const sortedData = data
             .map(item => ({ ...item, key: item.id }))
             .sort((a, b) => {
-                // Sắp xếp: Ngày tăng dần -> Giờ bắt đầu tăng dần
                 const dateA = dayjs(a.ngay);
                 const dateB = dayjs(b.ngay);
                 if (!dateA.isSame(dateB)) return dateA.diff(dateB);
@@ -105,7 +117,6 @@ const AdminSchedulePage = () => {
       .finally(() => setLoading(false));
   };
 
-  // Gọi lại API khi đổi chế độ xem hoặc đổi tuần (chỉ khi ở chế độ xem tất cả)
   useEffect(() => {
     fetchSchedules();
   }, [viewAllMode, selectedWeek]);
@@ -128,15 +139,25 @@ const AdminSchedulePage = () => {
     });
   };
 
-  const handleDelete = (id) => {
+  // Mở modal từ chối
+  const openRejectModal = (id) => {
+      setSelectedScheduleId(id);
+      setIsRejectModalVisible(true);
+  };
+
+  // Xác nhận từ chối (Xóa)
+  const handleConfirmReject = () => {
     const token = localStorage.getItem('userToken');
-    fetch(`${BASE_API_URL}/schedules/${id}`, {
+    // Ở đây dùng DELETE để xóa luôn, hoặc bạn có thể gọi API đổi trạng thái thành 'huy' nếu muốn lưu vết
+    fetch(`${BASE_API_URL}/schedules/${selectedScheduleId}`, {
       method: 'DELETE',
       headers: { 'Authorization': `Bearer ${token}` }
     })
     .then(res => {
         if (res.ok) {
-            message.success('Đã xóa/từ chối lịch!');
+            message.success('Đã từ chối lịch.');
+            setIsRejectModalVisible(false);
+            setRejectReason('');
             fetchSchedules();
         } else {
             message.error('Lỗi khi xóa.');
@@ -144,8 +165,14 @@ const AdminSchedulePage = () => {
     });
   };
 
+  // Hàm hiển thị chi tiết
+  const showDetail = (title, content) => {
+      setDetailContent({ title, content });
+      setIsDetailModalVisible(true);
+  };
 
-// --- CẤU HÌNH CỘT CHO BẢNG ---
+
+// --- CẤU HÌNH CỘT (CẬP NHẬT GIAO DIỆN PHỤ LỤC & BỔ SUNG) ---
   const adminColumns = [
     { title: 'TT', key: 'tt', render: (text, record, index) => index + 1, width: 50, align: 'center' },
     
@@ -167,24 +194,68 @@ const AdminSchedulePage = () => {
 
     { title: 'Thời gian', key: 'thoiGian', width: 100, render: (r) => <b>{`${r.batDau.slice(0, 5)} - ${r.ketThuc.slice(0, 5)}`}</b> },
     
+    // 👇 CỘT NỘI DUNG MỚI
     { 
         title: 'Nội dung', 
         dataIndex: 'noiDung', 
         key: 'noiDung', 
         width: 300, 
-        render: (text) => <div dangerouslySetInnerHTML={{ __html: text }} /> 
+        render: (text, record) => {
+            const isPhuLuc = record.thuocPhuLuc === 1 || record.thuocPhuLuc === true;
+            const isBoSung = record.isBoSung === 1 || record.isBoSung === true;
+
+            const tmp = document.createElement("DIV");
+            tmp.innerHTML = text;
+            const plainText = tmp.textContent || "";
+            const isLong = plainText.length > 150;
+
+            return (
+                <div>
+                    {isBoSung && <Tag color="#ff4d4f" style={{fontWeight: 'bold', marginBottom: 5}}>LỊCH BỔ SUNG</Tag>}
+                    
+                    {isPhuLuc ? (
+                        <div style={{ backgroundColor: '#f0f5ff', border: '1px dashed #adc6ff', padding: '8px', borderRadius: '4px' }}>
+                            <Space><FileTextOutlined style={{color: '#1890ff'}}/><Text type="secondary" style={{fontSize: 12}}>Nội dung phụ lục</Text></Space>
+                            <Button type="link" size="small" onClick={() => showDetail('Nội dung chi tiết', text)} style={{paddingLeft: 0, display: 'block'}}>
+                                Xem chi tiết
+                            </Button>
+                        </div>
+                    ) : isLong ? (
+                        <div>
+                            {plainText.slice(0, 150)}...
+                            <a onClick={() => showDetail('Nội dung chi tiết', text)} style={{marginLeft: 5}}>Xem thêm</a>
+                        </div>
+                    ) : (
+                        <div dangerouslySetInnerHTML={{ __html: text }} />
+                    )}
+                </div>
+            );
+        } 
     },
+    // 👇 CỘT THÀNH PHẦN MỚI
     { 
         title: 'Thành phần', 
         dataIndex: 'thanhPhan', 
         key: 'thanhPhan', 
-        width: 380, 
-        render: (text) => <div dangerouslySetInnerHTML={{ __html: text }} /> 
+        width: 250, 
+        render: (text, record) => {
+            const isPhuLuc = record.thuocPhuLuc === 1 || record.thuocPhuLuc === true;
+            if (isPhuLuc) {
+                return (
+                    <div style={{ backgroundColor: '#f6ffed', border: '1px dashed #b7eb8f', padding: '8px', borderRadius: '4px' }}>
+                        <Space><TeamOutlined style={{color: '#52c41a'}}/><Text type="secondary" style={{fontSize: 12}}>DS đính kèm</Text></Space>
+                        <Button type="link" size="small" onClick={() => showDetail('Thành phần tham dự', text)} style={{paddingLeft: 0, display: 'block', color: '#52c41a'}}>
+                            Xem danh sách
+                        </Button>
+                    </div>
+                );
+            }
+            return <div dangerouslySetInnerHTML={{ __html: text }} />;
+        }
     },
 
     { title: 'Địa điểm', dataIndex: 'diaDiem', key: 'diaDiem', width: 120 },
 
-    // 👇👇👇 CỘT MỚI BẠN CẦN THÊM VÀO ĐÂY 👇👇👇
     { 
         title: 'Khoa / Đơn vị', 
         dataIndex: 'donVi', 
@@ -192,7 +263,6 @@ const AdminSchedulePage = () => {
         width: 150,
         render: (text) => <span style={{ color: '#096dd9', fontWeight: 500 }}>{text}</span>
     },
-    // 👆👆👆 -------------------------------- 👆👆👆
 
     { title: 'Chủ trì', dataIndex: 'chuTriTen', key: 'chuTriTen', width: 120, render: (t) => <b>{t}</b> },
     { title: 'Đơn vị đề nghị', dataIndex: 'chuTriEmail', key: 'donViDeNghi', width: 150, ellipsis: true },
@@ -211,15 +281,6 @@ const AdminSchedulePage = () => {
     },
     
     { 
-      title: 'Bổ sung', 
-      dataIndex: 'isBoSung', 
-      key: 'boSung', 
-      width: 80, 
-      align: 'center',
-      render: (val) => (val == 1 || val === true) ? <Tag color="red">BS</Tag> : null
-    },
-
-    { 
       title: 'Hành động', 
       key: 'hanhDong', 
       width: 140,
@@ -227,20 +288,21 @@ const AdminSchedulePage = () => {
       render: (record) => (
         <Space size="small">
           {record.trangThai === 'cho_duyet' && (
-            <Button 
-                type="primary" 
-                size="small" 
-                icon={<CheckOutlined />}
-                style={{ backgroundColor: '#52c41a', borderColor: '#52c41a' }}
-                onClick={() => handleApprove(record.id)}
-            >
-                Duyệt
-            </Button>
+            <Popconfirm title="Duyệt lịch này?" onConfirm={() => handleApprove(record.id)} okText="Duyệt" cancelText="Hủy">
+                <Button 
+                    type="primary" 
+                    size="small" 
+                    icon={<CheckOutlined />}
+                    style={{ backgroundColor: '#52c41a', borderColor: '#52c41a' }}
+                >
+                    Duyệt
+                </Button>
+            </Popconfirm>
           )}
           
-          <Popconfirm title="Xóa/Từ chối lịch này?" onConfirm={() => handleDelete(record.id)} okType="danger">
-             <Button size="small" danger icon={<DeleteOutlined />}>Xóa</Button>
-          </Popconfirm>
+          <Button danger size="small" icon={<CloseCircleOutlined />} onClick={() => openRejectModal(record.id)}>
+             {record.trangThai === 'cho_duyet' ? 'Từ chối' : 'Xóa'}
+          </Button>
         </Space>
       )
     },
@@ -313,6 +375,35 @@ const AdminSchedulePage = () => {
             background-color: #ffe7ba !important;
         }
       `}</style>
+
+      {/* 👇 MODAL HIỂN THỊ CHI TIẾT (MỚI) */}
+      <Modal
+        title={detailContent.title}
+        open={isDetailModalVisible}
+        onCancel={() => setIsDetailModalVisible(false)}
+        footer={[<Button key="close" onClick={() => setIsDetailModalVisible(false)}>Đóng</Button>]}
+        width={800}
+      >
+        <div dangerouslySetInnerHTML={{ __html: detailContent.content }} />
+      </Modal>
+
+      {/* 👇 MODAL TỪ CHỐI (MỚI) */}
+      <Modal
+        title="Xác nhận từ chối / Xóa lịch"
+        open={isRejectModalVisible}
+        onOk={handleConfirmReject}
+        onCancel={() => setIsRejectModalVisible(false)}
+        okText="Xác nhận Từ chối"
+        okButtonProps={{ danger: true }}
+      >
+        <p>Bạn có chắc muốn từ chối (xóa) lịch này không?</p>
+        <TextArea 
+            rows={3} 
+            placeholder="Nhập lý do từ chối (Tùy chọn)..." 
+            value={rejectReason}
+            onChange={(e) => setRejectReason(e.target.value)}
+        />
+      </Modal>
 
     </div>
   );
