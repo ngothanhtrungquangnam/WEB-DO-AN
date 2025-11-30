@@ -16,6 +16,7 @@ import AuthGuard from './AuthGuard';
 import UserPage from './UserPage';
 import AdminUsersPage from './AdminUsersPage';
 import RegisterPage from './RegisterPage';
+import MyPendingSchedules from './MyPendingSchedules';
 
 // 👇 MỚI: Import trang Khoa/Phòng ban
 import DepartmentsPage from './DepartmentsPage'; 
@@ -58,6 +59,7 @@ function App() {
             <Route path="/" element={<MainLayout />}>
               <Route index element={<ScheduleDashboard />} />
               <Route path="dang-ky" element={<ScheduleForm />} />
+              <Route path="lich-da-gui" element={<MyPendingSchedules />} />
               <Route path="dia-diem" element={<LocationManagement />} />
               <Route path="quan-ly" element={<AdminSchedulePage />} />
 

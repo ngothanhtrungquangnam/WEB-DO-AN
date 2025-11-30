@@ -14,8 +14,9 @@ import {
   TeamOutlined,       
   IdcardOutlined,     
   CheckCircleOutlined,
-  ClockCircleOutlined ,
-  TableOutlined
+  ClockCircleOutlined,
+  TableOutlined,
+  SendOutlined // 👈 Icon máy bay giấy (Mới)
 } from '@ant-design/icons';
 import dutLogo from './dut.jpg'; 
 
@@ -41,11 +42,10 @@ const MainLayout = () => {
   const [collapsed, setCollapsed] = useState(true); 
   const [user, setUser] = useState(getCurrentUser()); 
   
-  // 👇 State lưu trữ 3 chỉ số thống kê
   const [stats, setStats] = useState({
-      pendingSchedules: 0, // Lịch chờ duyệt
-      pendingUsers: 0,     // User mới đăng ký
-      pendingResets: 0     // Yêu cầu reset mật khẩu
+      pendingSchedules: 0, 
+      pendingUsers: 0,     
+      pendingResets: 0     
   });
 
   const location = useLocation();
@@ -55,7 +55,6 @@ const MainLayout = () => {
         setUser(getCurrentUser());
     }, [location.pathname]);
 
-    // 👇 LOGIC GỌI API THỐNG KÊ 👇
     useEffect(() => {
         const fetchAdminStats = () => {
             const currentUser = getCurrentUser();
@@ -66,7 +65,6 @@ const MainLayout = () => {
 
             const headers = { Authorization: `Bearer ${token}` };
 
-            // Gọi API tổng hợp để lấy số liệu
             axios.get('https://lich-tuan-api-bcg9d2aqfgbwbbcv.eastasia-01.azurewebsites.net/api/admin/stats/general', { headers })
             .then(res => {
                 setStats(res.data);
@@ -74,9 +72,8 @@ const MainLayout = () => {
             .catch(err => console.error("Lỗi lấy thống kê admin:", err));
         };
 
-        fetchAdminStats(); // Gọi ngay khi vào trang
+        fetchAdminStats(); 
 
-        // Tự động cập nhật mỗi 10 giây
         const interval = setInterval(fetchAdminStats, 10000); 
         return () => clearInterval(interval);
     }, [location.pathname]); 
@@ -91,8 +88,6 @@ const MainLayout = () => {
 
     const getMenuItems = (user) => {
         const isManager = isAdminOrManager(user);
-
-        // Tính tổng thông báo cho menu cha "Người dùng"
         const totalUserNotifs = stats.pendingUsers + stats.pendingResets;
 
         // 1. MENU CON NGƯỜI DÙNG
@@ -108,7 +103,6 @@ const MainLayout = () => {
                 label: (
                     <Link to="/nguoi-dung/quan-ly" style={{ display: 'flex', alignItems: 'center' }}>
                         <span>Quản lý tài khoản</span>
-                        {/* 👇 Badge cho Yêu cầu Reset mật khẩu (Màu vàng cam) */}
                         {stats.pendingResets > 0 && (
                             <Badge 
                                 count={stats.pendingResets} 
@@ -125,7 +119,6 @@ const MainLayout = () => {
                 label: (
                     <Link to="/nguoi-dung/can-duyet" style={{ display: 'flex', alignItems: 'center' }}>
                         <span>Tài khoản cần duyệt</span>
-                        {/* 👇 Badge cho User mới đăng ký (Màu xanh lá) */}
                         {stats.pendingUsers > 0 && (
                             <Badge 
                                 count={stats.pendingUsers} 
@@ -151,12 +144,20 @@ const MainLayout = () => {
                 icon: <FormOutlined />,
                 hidden: isManager 
             }, 
+            
+            // 👇 [MỚI] THÊM MỤC LỊCH ĐÃ GỬI (Chỉ hiện cho User thường)
+            { 
+                key: '/lich-da-gui', 
+                label: <Link to="/lich-da-gui">Lịch đã gửi</Link>,
+                icon: <SendOutlined />, 
+                hidden: isManager // Admin/Manager không cần xem cái này
+            }, 
+
             { 
                 key: '/quan-ly', 
                 label: (
                     <Link to="/quan-ly" style={{ display: 'flex', alignItems: 'center' }}>
                         <span>Quản lý/Duyệt lịch</span>
-                        {/* 👇 Badge cho Lịch chờ duyệt (Màu đỏ) */}
                         {stats.pendingSchedules > 0 && (
                              <Badge 
                                 count={stats.pendingSchedules} 
@@ -184,7 +185,6 @@ const MainLayout = () => {
             { 
                 key: 'sub-nguoi-dung', 
                 icon: <TeamOutlined />, 
-                // 👇 Badge tổng ở menu cha "Người dùng"
                 label: (
                     <div style={{ display: 'flex', alignItems: 'center' }}>
                         <span>Người dùng</span>
@@ -196,7 +196,6 @@ const MainLayout = () => {
             { 
                 key: 'sub-lich-tuan', 
                 icon: <CalendarOutlined />, 
-                // 👇 Badge chấm đỏ menu cha "Lịch Tuần"
                 label: (
                     <div style={{ display: 'flex', alignItems: 'center' }}>
                         <span>Lịch Tuần</span>
@@ -206,16 +205,15 @@ const MainLayout = () => {
                 children: filterMenuItems(lichTuanItems) 
             },
             { 
-            key: '/thoi-khoa-bieu', 
-            icon: <TableOutlined />, // Sử dụng icon đã import ở trên
-            label: <Link to="/thoi-khoa-bieu">Thời khóa biểu</Link>,
-        },
+                key: '/thoi-khoa-bieu', 
+                icon: <TableOutlined />, 
+                label: <Link to="/thoi-khoa-bieu">Thời khóa biểu</Link>,
+            },
             { 
                 key: '/khoa-phong', 
                 icon: <ApartmentOutlined />, 
                 label: <Link to="/khoa-phong">Khoa và phòng ban</Link>,
             },
-            
         ];
     };
 

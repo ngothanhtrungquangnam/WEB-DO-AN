@@ -611,6 +611,34 @@ app.delete('/api/rooms/:id', authMiddleware, adminMiddleware, (req, res) => {
 app.use((req, res) => {
     res.status(404).json({ message: 'API endpoint không tồn tại.' });
 });
+// API XÓA LỊCH (Có bảo mật quyền)
+app.delete('/api/schedules/:id', authMiddleware, (req, res) => {
+    const scheduleId = req.params.id;
+    const userEmail = req.user.email;
+    const userRole = req.user.role;
+
+    let sql = "DELETE FROM schedules WHERE id = ?";
+    let params = [scheduleId];
+
+    // 👇 LOGIC QUAN TRỌNG:
+    // Nếu KHÔNG phải Admin/Manager, thì chỉ được xóa lịch của chính mình (check email)
+    if (userRole !== 'admin' && userRole !== 'manager') {
+        sql += " AND chuTriEmail = ?";
+        params.push(userEmail);
+    }
+
+    db.query(sql, params, (err, result) => {
+        if (err) return res.status(500).json({ message: 'Lỗi server.' });
+        
+        if (result.affectedRows === 0) {
+            // Nếu không xóa được dòng nào -> Có thể do ID sai hoặc User cố xóa lịch của người khác
+            return res.status(403).json({ message: 'Bạn không có quyền xóa lịch này hoặc lịch không tồn tại.' });
+        }
+        
+        res.json({ message: 'Đã xóa lịch thành công.' });
+    });
+});
+
 
 // ✅ THÊM: Global error handler
 app.use((err, req, res, next) => {
