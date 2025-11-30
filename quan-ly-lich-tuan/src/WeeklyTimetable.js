@@ -33,7 +33,7 @@ const WeeklyTimetable = () => {
     // Lấy ngày 1/1 của năm
     const startOfYear = dayjs().startOf('year'); 
     // Lấy ngày Thứ 2 của tuần chứa ngày 1/1 (Nó sẽ ra ngày 30/12/2024)
-    let start = startOfYear.startOf('isoWeek'); 
+    let start = dayjs('2025-01-07');
 
     // 👇 LOGIC FIX: Nếu Thứ 2 đó rơi vào năm ngoái (2024), ta cộng thêm 1 tuần để nhảy sang 2025
     if (start.year() < startOfYear.year()) {
