@@ -19,7 +19,7 @@ import RegisterPage from './RegisterPage';
 
 // 👇 MỚI: Import trang Khoa/Phòng ban
 import DepartmentsPage from './DepartmentsPage'; 
-
+import WeeklyTimetable from './WeeklyTimetable';
 import dayjs from 'dayjs';
 import 'dayjs/locale/vi';
 dayjs.locale('vi');
@@ -60,6 +60,7 @@ function App() {
               <Route path="dang-ky" element={<ScheduleForm />} />
               <Route path="dia-diem" element={<LocationManagement />} />
               <Route path="quan-ly" element={<AdminSchedulePage />} />
+
               
               {/* Các route Người dùng */}
               <Route path="nguoi-dung/ca-nhan" element={<UserPage />} />
@@ -69,6 +70,8 @@ function App() {
               {/* 👇 ĐÃ SỬA: Gắn component DepartmentsPage vào đây */}
               {/* Vì MainLayout đã ở trên, nên ở đây chỉ để <DepartmentsPage /> là đủ */}
               <Route path="khoa-phong" element={<DepartmentsPage />} />
+              {/* Thêm dòng này vào chỗ các Route khác */}
+               <Route path="thoi-khoa-bieu" element={<WeeklyTimetable />} /> 
               
             </Route>
           </Route>
