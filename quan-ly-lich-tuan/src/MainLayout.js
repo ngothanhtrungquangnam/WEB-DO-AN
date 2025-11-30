@@ -14,7 +14,8 @@ import {
   TeamOutlined,       
   IdcardOutlined,     
   CheckCircleOutlined,
-  ClockCircleOutlined 
+  ClockCircleOutlined ,
+  TableOutlined
 } from '@ant-design/icons';
 import dutLogo from './dut.jpg'; 
 
@@ -205,10 +206,16 @@ const MainLayout = () => {
                 children: filterMenuItems(lichTuanItems) 
             },
             { 
+            key: '/thoi-khoa-bieu', 
+            icon: <TableOutlined />, // Sử dụng icon đã import ở trên
+            label: <Link to="/thoi-khoa-bieu">Thời khóa biểu</Link>,
+        },
+            { 
                 key: '/khoa-phong', 
                 icon: <ApartmentOutlined />, 
                 label: <Link to="/khoa-phong">Khoa và phòng ban</Link>,
             },
+            
         ];
     };
 
