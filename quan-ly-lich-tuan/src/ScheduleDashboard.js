@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { Table, Tag, message, Button, Select, Space, Typography, Switch, Row, Col } from 'antd'; 
 import { Link } from 'react-router-dom';
+// 👇 1. IMPORT THÊM ICON MỚI
+import { UnorderedListOutlined } from '@ant-design/icons';
 import 'dayjs/locale/vi';
 import dayjs from 'dayjs';
 import isoWeek from 'dayjs/plugin/isoWeek'; 
@@ -26,7 +28,7 @@ const generateWeeks = (year) => {
     for (let i = 1; i <= 53; i++) {
         const startDate = currentDate.format('YYYY-MM-DD');
         const endDate = currentDate.add(6, 'day').format('YYYY-MM-DD');
-        const labelStr = `Tuần ${i}: ${currentDate.format('DD-MM-YYYY')} - ${currentDate.add(6, 'day').format('DD-MM-YYYY')}`; // Format theo ảnh
+        const labelStr = `Tuần ${i}: ${currentDate.format('DD-MM-YYYY')} - ${currentDate.add(6, 'day').format('DD-MM-YYYY')}`; 
         
         weeks.push({
             label: labelStr,
@@ -48,7 +50,6 @@ const statusOptions = [
   { label: 'Đã duyệt', value: 'da_duyet' },
 ];
 
-// Tự động tìm tuần hiện tại
 const today = dayjs();
 const currentWeekObj = weekOptions.find(w => 
     (today.isAfter(dayjs(w.startDate).subtract(1, 'day')) && today.isBefore(dayjs(w.endDate).add(1, 'day')))
@@ -62,7 +63,7 @@ const ScheduleDashboard = () => {
   
   const [selectedWeek, setSelectedWeek] = useState(defaultWeekValue);
   const [userOptions, setUserOptions] = useState([]); 
-  const [selectedHost, setSelectedHost] = useState(null); 
+  const [selectedHost, setSelectedHost] = useState(undefined); 
   const [selectedStatus, setSelectedStatus] = useState('Tất cả');
 
   const [filterMySchedule, setFilterMySchedule] = useState(false);
@@ -70,7 +71,6 @@ const ScheduleDashboard = () => {
   const [filterUnit, setFilterUnit] = useState(false);
   const [filterCanceled, setFilterCanceled] = useState(false);
 
-  // Load danh sách Chủ trì
   useEffect(() => {
       const fetchHosts = () => {
           const token = localStorage.getItem('userToken');
@@ -83,19 +83,25 @@ const ScheduleDashboard = () => {
       fetchHosts();
   }, []);
 
-  // Hàm reset bộ lọc (Cho nút màu cam "Xóa bộ lọc")
   const handleClearFilters = () => {
-      setSelectedHost(null);
+      setSelectedHost(undefined);
       setSelectedStatus('Tất cả');
       setFilterMySchedule(false);
       setFilterMyCreation(false);
       setFilterUnit(false);
       setFilterCanceled(false);
-      // Reset tuần về hiện tại
-      setSelectedWeek(defaultWeekValue);
+      setSelectedWeek(defaultWeekValue); 
+      message.info('Đã xóa bộ lọc, quay về mặc định.');
   };
 
-  // Load Lịch
+  const handleShowAllList = () => {
+      setFilterMySchedule(false);
+      setFilterMyCreation(false);
+      setFilterUnit(false);
+      setFilterCanceled(false);
+      message.success('Đang hiển thị tất cả các lịch.');
+  };
+
   const fetchSchedules = (weekValue, hostValue, statusValue, filters) => {
     setLoading(true);
     const week = weekOptions.find(w => w.value === weekValue);
@@ -123,7 +129,6 @@ const ScheduleDashboard = () => {
     })
     .then(data => {
         let processedData = data.map(item => ({ ...item, key: item.id }));
-        // Xử lý gộp ô rowSpan
         for (let i = 0; i < processedData.length; i++) {
           if (processedData[i].rowSpan === 0) continue;
           let count = 1; 
@@ -155,9 +160,8 @@ const ScheduleDashboard = () => {
 
   const handleSwitchChange = (setter) => (checked) => setter(checked);
   
-const columns = [
+  const columns = [
     { 
-        // 👇 SỬA DÒNG NÀY: Đổi 'Thứ Hai' thành 'Thứ Ngày'
         title: 'Thứ Ngày', 
         dataIndex: 'ngay', 
         key: 'thuNgay', 
@@ -203,10 +207,9 @@ const columns = [
         className: 'column-header-custom',
         render: (record) => {
             if (record.trangThai === 'da_duyet') {
-                // Chấm tròn xanh lá giống ảnh
                 return <div style={{ width: 20, height: 20, backgroundColor: '#4CAF50', borderRadius: '50%', margin: 'auto' }}></div>;
             } else if (record.trangThai === 'cho_duyet') {
-                return <div style={{ width: 20, height: 20, backgroundColor: '#ff9800', borderRadius: '50%', margin: 'auto' }}></div>; // Màu cam cho chờ duyệt
+                return <div style={{ width: 20, height: 20, backgroundColor: '#ff9800', borderRadius: '50%', margin: 'auto' }}></div>; 
             }
             return null;
         }
@@ -230,7 +233,6 @@ const columns = [
   return (
     <div style={{ padding: '0px', backgroundColor: '#fff' }}>
       
-      {/* === 1. THANH HEADER XANH DƯƠNG === */}
       <div style={{ 
           backgroundColor: '#3498db', 
           padding: '10px 20px', 
@@ -246,7 +248,7 @@ const columns = [
                 Đăng ký lịch mới
             </Button>
           </Link>
-          {/* Nút Xóa bộ lọc màu cam giống ảnh */}
+          
           <Button 
             style={{ backgroundColor: '#ffb142', color: '#fff', borderColor: '#ffb142', fontWeight: 'bold' }}
             onClick={handleClearFilters}
@@ -254,11 +256,8 @@ const columns = [
               Xóa bộ lọc
           </Button>
         </Space>
-        
-       
       </div>
 
-      {/* === 2. KHUNG BỘ LỌC === */}
       <div style={{ padding: '0 20px' }}>
           <Row gutter={[16, 16]} align="bottom" style={{ marginBottom: 16 }}>
                 <Col>
@@ -305,7 +304,7 @@ const columns = [
                 </Col>
           </Row>
 
-          <Space style={{ marginBottom: 20 }} wrap>
+          <Space style={{ marginBottom: 20 }} wrap align="center">
             <Space>
               <Switch size="small" checked={filterMySchedule} onChange={handleSwitchChange(setFilterMySchedule)} />
               <span style={{color: '#555'}}>Lịch của tôi</span>
@@ -322,19 +321,32 @@ const columns = [
               <Switch size="small" checked={filterCanceled} onChange={handleSwitchChange(setFilterCanceled)} />
               <span style={{color: '#555'}}>Đã hủy</span>
             </Space>
+            
+            {/* 👇👇👇 NÚT "HIỆN TẤT CẢ" ĐÃ ĐƯỢC LÀM ĐẸP TẠI ĐÂY 👇👇👇 */}
+            <Button 
+                icon={<UnorderedListOutlined />}
+                size="middle"
+                onClick={handleShowAllList}
+                style={{ 
+                    backgroundColor: '#fff', 
+                    color: '#d46b08', 
+                    border: '1px solid #d46b08', 
+                    fontWeight: '600', 
+                    borderRadius: '20px', // Bo tròn đẹp
+                    marginLeft: 15,
+                    fontSize: '13px',
+                    boxShadow: '0 2px 0 rgba(0,0,0,0.02)'
+                }}
+            >
+                Hiện tất cả
+            </Button>
           </Space>
-          
-          <Button style={{ backgroundColor: '#f1c40f', color: '#000', fontWeight: 'bold', borderColor: '#f1c40f', marginBottom: 20 }}>
-            Danh sách tất cả các lịch
-          </Button>
       </div>
 
-      {/* === 3. TIÊU ĐỀ & BẢNG === */}
       <Title level={3} style={{ textAlign: 'center', color: '#2c3e50', textTransform: 'uppercase', marginBottom: 20 }}>
         LỊCH CÔNG TÁC TUẦN
       </Title>
 
-      {/* Style CSS riêng cho bảng để giống ảnh (Header màu xanh nhạt, border màu tím nhạt) */}
       <style>
         {`
             .ant-table-thead > tr > th {
