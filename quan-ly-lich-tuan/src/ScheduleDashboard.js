@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Table, Tag, message, Button, Select, Space, Typography, Switch, Row, Col, Modal, Tooltip, Popconfirm } from 'antd'; 
 import { Link } from 'react-router-dom';
+// 👇 1. IMPORT CÁC ICON CẦN THIẾT
 import { UnorderedListOutlined, EyeOutlined, DeleteOutlined, CalendarOutlined } from '@ant-design/icons';
 import 'dayjs/locale/vi';
 import dayjs from 'dayjs';
@@ -18,6 +19,7 @@ const { Title, Text } = Typography;
 
 const BASE_API_URL = 'https://lich-tuan-api-bcg9d2aqfgbwbbcv.eastasia-01.azurewebsites.net/api';
 
+// --- 1. HÀM TỰ ĐỘNG SINH DANH SÁCH TUẦN (GIỮ NGUYÊN) ---
 const generateWeeks = (year) => {
     const weeks = [];
     let currentDate = dayjs(`${year}-01-01`).startOf('week').add(1, 'day'); 
@@ -69,11 +71,11 @@ const ScheduleDashboard = () => {
   const [filterUnit, setFilterUnit] = useState(false);
   const [filterCanceled, setFilterCanceled] = useState(false);
 
-  // 👇 STATE MỚI: QUẢN LÝ POPUP PHỤ LỤC
+  // 👇 STATE MỚI CHO POPUP PHỤ LỤC
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [modalContent, setModalContent] = useState({ title: '', content: '' });
 
-  // Lấy thông tin user hiện tại để check quyền xóa
+  // Lấy thông tin user hiện tại (để check quyền xóa)
   const userDataStr = localStorage.getItem('userData');
   const currentUser = userDataStr ? JSON.parse(userDataStr) : null;
 
@@ -108,6 +110,13 @@ const ScheduleDashboard = () => {
       message.success('Đang hiển thị tất cả các lịch.');
   };
 
+  // 👇 HÀM HIỂN THỊ MODAL
+  const showDetailModal = (title, content) => {
+      setModalContent({ title, content });
+      setIsModalVisible(true);
+  };
+
+  // 👇 HÀM XÓA LỊCH
   const handleDeleteSchedule = (id) => {
       const token = localStorage.getItem('userToken');
       fetch(`${BASE_API_URL}/schedules/${id}`, {
@@ -117,6 +126,7 @@ const ScheduleDashboard = () => {
       .then(res => {
           if (res.ok) {
               message.success('Đã xóa lịch thành công!');
+              // Refresh data
               fetchSchedules(selectedWeek, selectedHost, selectedStatus, {
                   isMySchedule: filterMySchedule,
                   isMyCreation: filterMyCreation,
@@ -129,12 +139,6 @@ const ScheduleDashboard = () => {
           }
       })
       .catch(() => message.error('Lỗi kết nối server!'));
-  };
-
-  // 👇 HÀM HIỂN THỊ POPUP PHỤ LỤC
-  const showDetailModal = (title, content) => {
-      setModalContent({ title, content });
-      setIsModalVisible(true);
   };
 
   const fetchSchedules = (weekValue, hostValue, statusValue, filters) => {
@@ -222,7 +226,7 @@ const ScheduleDashboard = () => {
         className: 'column-header-custom',
         render: (record) => <b>{`${record.batDau.slice(0, 5)} - ${record.ketThuc.slice(0, 5)}`}</b> 
     },
-    // 👇👇 CẬP NHẬT CỘT NỘI DUNG: XỬ LÝ PHỤ LỤC & BỔ SUNG 👇👇
+    // 👇👇 CẬP NHẬT CỘT NỘI DUNG: XỬ LÝ TAG BỔ SUNG & PHỤ LỤC 👇👇
     { 
         title: 'Nội Dung', 
         dataIndex: 'noiDung', 
@@ -231,15 +235,15 @@ const ScheduleDashboard = () => {
         render: (text, record) => (
             <div>
                 {/* 1. Lịch Bổ Sung -> Hiện Tag Đỏ */}
-                {record.isBoSung && (
+                {record.isBoSung === 1 && ( // (Lưu ý: MySQL lưu boolean là 1/0)
                     <Tag color="#ff4d4f" style={{ marginBottom: 5, fontWeight: 'bold' }}>LỊCH BỔ SUNG</Tag>
                 )}
 
-                {/* 2. Thuộc Phụ Lục -> Ẩn nội dung dài, Hiện nút Xem chi tiết */}
-                {record.thuocPhuLuc ? (
+                {/* 2. Thuộc Phụ Lục -> Ẩn nội dung dài */}
+                {record.thuocPhuLuc === 1 ? (
                     <div>
                         <Tag color="geekblue" style={{ marginBottom: 5 }}>PHỤ LỤC</Tag>
-                        <div style={{ fontStyle: 'italic', color: '#888', marginBottom: 5 }}>
+                        <div style={{ fontStyle: 'italic', color: '#888', marginBottom: 5, fontSize: '12px' }}>
                             (Nội dung chi tiết trong phụ lục)
                         </div>
                         <Button 
@@ -253,7 +257,7 @@ const ScheduleDashboard = () => {
                         </Button>
                     </div>
                 ) : (
-                    // Nếu không phải phụ lục -> Hiện bình thường
+                    // Hiện nội dung bình thường
                     <div dangerouslySetInnerHTML={{ __html: text }} />
                 )}
             </div>
@@ -267,7 +271,8 @@ const ScheduleDashboard = () => {
         className: 'column-header-custom', 
         width: 300,
         render: (text, record) => {
-            if (record.thuocPhuLuc) {
+            // Nếu thuộc phụ lục thì ẩn luôn thành phần cho gọn bảng
+            if (record.thuocPhuLuc === 1) {
                 return (
                     <Button 
                         size="small" 
@@ -309,9 +314,9 @@ const ScheduleDashboard = () => {
     { 
         title: 'Hành Động', 
         key: 'hanhDong', 
-        width: 120,
-        align: 'center',
+        width: 120, // Giảm width
         className: 'column-header-custom',
+        align: 'center',
         render: (_, record) => {
             const isOwner = currentUser?.email === record.chuTriEmail;
             const isAdmin = currentUser?.role === 'admin' || currentUser?.role === 'manager';
@@ -322,31 +327,25 @@ const ScheduleDashboard = () => {
                     <Tooltip title="Thêm vào Outlook">
                         <Button 
                             size="small" 
+                            style={{ backgroundColor: '#6c5ce7', color: '#fff', borderColor: '#6c5ce7', borderRadius: '4px', fontWeight: 500, width: '100%' }}
                             icon={<CalendarOutlined />}
-                            style={{ backgroundColor: '#6c5ce7', color: '#fff', borderColor: '#6c5ce7', width: '100%' }}
                         />
                     </Tooltip>
 
+                    {/* Nút Xóa (Chỉ hiện nếu có quyền) */}
                     {canDelete && (
                         <Popconfirm 
-                            title="Bạn có chắc muốn xóa lịch này không?"
+                            title="Xóa lịch này?" 
                             onConfirm={() => handleDeleteSchedule(record.id)}
                             okText="Xóa"
                             cancelText="Hủy"
                         >
-                            <Button 
-                                size="small" 
-                                danger 
-                                icon={<DeleteOutlined />}
-                                style={{ width: '100%' }}
-                            >
-                                Xóa
-                            </Button>
+                            <Button size="small" danger icon={<DeleteOutlined />} style={{width: '100%'}}>Xóa</Button>
                         </Popconfirm>
                     )}
                 </div>
-            );
-        } 
+            ) 
+        }
     },
   ];
 
@@ -442,6 +441,7 @@ const ScheduleDashboard = () => {
               <span style={{color: '#555'}}>Đã hủy</span>
             </Space>
             
+            {/* 👇👇👇 NÚT "HIỆN TẤT CẢ" ĐÃ ĐƯỢC LÀM ĐẸP TẠI ĐÂY 👇👇👇 */}
             <Button 
                 icon={<UnorderedListOutlined />}
                 size="middle"
@@ -451,9 +451,9 @@ const ScheduleDashboard = () => {
                     color: '#d46b08', 
                     border: '1px solid #d46b08', 
                     fontWeight: '600', 
-                    borderRadius: '20px', 
+                    borderRadius: '20px', // Bo tròn đẹp
                     marginLeft: 15,
-                    marginBottom: 20,
+                    marginBottom: 20, // Giữ khoảng cách
                     fontSize: '13px',
                     boxShadow: '0 2px 0 rgba(0,0,0,0.02)'
                 }}
@@ -506,7 +506,7 @@ const ScheduleDashboard = () => {
                 Đóng
             </Button>
         ]}
-        width={800} // Modal rộng rãi để đọc dễ
+        width={800} 
       >
         <div 
             style={{ maxHeight: '60vh', overflowY: 'auto', paddingRight: '10px' }}
