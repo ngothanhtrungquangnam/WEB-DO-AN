@@ -17,7 +17,7 @@ const BASE_API_URL = 'https://lich-tuan-api-bcg9d2aqfgbwbbcv.eastasia-01.azurewe
 
 const WeeklyTimetable = () => {
   const currentWeek = dayjs().isoWeek();
-  const [selectedWeek, setSelectedWeek] = useState(currentWeek); 
+  const [selectedWeek, setSelectedWeek] = useState(''); // Để rỗng ban đầu, useEffect sẽ set sau
   const [schedules, setSchedules] = useState([]);
   const [loading, setLoading] = useState(false);
   const [locations, setLocations] = useState([]);
@@ -25,19 +25,56 @@ const WeeklyTimetable = () => {
   const [displayedRooms, setDisplayedRooms] = useState([]);
 
   // --- HÀM 0: DANH SÁCH TUẦN ---
+  // --- HÀM 0: TẠO DANH SÁCH TUẦN (ĐÃ FIX ĐỒNG BỘ) ---
   const weekOptions = useMemo(() => {
     const options = [];
-    let start = dayjs().startOf('year').startOf('isoWeek');
+    
+    // 1. Xác định ngày bắt đầu Tuần 1 chuẩn
+    // Lấy ngày 1/1 của năm
+    const startOfYear = dayjs().startOf('year'); 
+    // Lấy ngày Thứ 2 của tuần chứa ngày 1/1 (Nó sẽ ra ngày 30/12/2024)
+    let start = startOfYear.startOf('isoWeek'); 
+
+    // 👇 LOGIC FIX: Nếu Thứ 2 đó rơi vào năm ngoái (2024), ta cộng thêm 1 tuần để nhảy sang 2025
+    if (start.year() < startOfYear.year()) {
+        start = start.add(1, 'week'); 
+        // Kết quả: start sẽ là 06/01/2025 (Khớp với logic của trường bạn)
+    }
+
+    // 2. Tạo danh sách 52 tuần
     for (let i = 1; i <= 52; i++) {
         const end = start.add(6, 'day');
-        // Nếu là tuần hiện tại thì thêm chữ (Hiện tại)
-        const isCurrent = i === currentWeek ? ' (Hiện tại)' : '';
-        const label = `Tuần ${i}${isCurrent} [${start.format('DD/MM')} - ${end.format('DD/MM')}]`;
-        options.push({ label, value: i, startRaw: start, endRaw: end });
+        
+        // Kiểm tra xem đây có phải tuần hiện tại không
+        // So sánh ngày hôm nay có nằm trong khoảng start-end này không
+        const isCurrent = dayjs().isAfter(start.subtract(1, 'minute')) && dayjs().isBefore(end.add(1, 'minute'));
+        const currentLabel = isCurrent ? ' (Hiện tại)' : '';
+
+        // Format label: Tuần 1 [06/01 - 12/01]
+        const label = `Tuần ${i}${currentLabel} [${start.format('DD/MM')} - ${end.format('DD/MM')}]`;
+        
+        // Value lưu ngày bắt đầu để lát query API
+        options.push({ label, value: start.format('YYYY-MM-DD'), startRaw: start, endRaw: end });
+        
+        // Nhảy sang tuần tiếp theo
         start = start.add(1, 'week');
     }
+    
     return options;
-  }, [currentWeek]);
+  }, []);
+
+  // 👇 SỬA LẠI STATE KHỞI TẠO ĐỂ NÓ CHỌN ĐÚNG TUẦN HIỆN TẠI MỚI
+  useEffect(() => {
+      // Tìm tuần hiện tại trong danh sách options vừa tạo
+      const today = dayjs();
+      const currentOption = weekOptions.find(w => 
+          today.isAfter(w.startRaw.subtract(1, 'day')) && today.isBefore(w.endRaw.add(1, 'day'))
+      );
+      
+      if (currentOption) {
+          setSelectedWeek(currentOption.value);
+      }
+  }, [weekOptions]);
 
   // --- HÀM 1: LẤY KHU VỰC ---
   useEffect(() => {
