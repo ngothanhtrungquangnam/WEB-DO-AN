@@ -1,23 +1,36 @@
 import React, { useState, useEffect } from 'react';
-import { Table, Card, Button, Input, Modal, message, Space, Popconfirm } from 'antd';
-import { PlusOutlined, DeleteOutlined, ReloadOutlined } from '@ant-design/icons';
+import { Table, Card, Button, Input, Modal, message, Popconfirm, Tag } from 'antd';
+import { PlusOutlined, DeleteOutlined } from '@ant-design/icons';
 
 const DepartmentsPage = () => {
     const [departments, setDepartments] = useState([]);
     const [loading, setLoading] = useState(false);
     const [isModalVisible, setIsModalVisible] = useState(false);
     const [newDeptName, setNewDeptName] = useState('');
+    
+    // 👇 Thêm state để kiểm tra quyền Admin
+    const [isAdmin, setIsAdmin] = useState(false);
 
-    // 👇 QUAN TRỌNG: Cấu hình đường dẫn API
-    // Nếu chạy Local: dùng 'http://localhost:8080'
-    // Nếu chạy trên Web Azure: Phải thay bằng link Backend thật của bạn (ví dụ: https://my-api.azurewebsites.net)
-   const BASE_URL = 'https://lich-tuan-api-bcg9d2aqfgbwbbcv.eastasia-01.azurewebsites.net';
+    // 👇 LINK BACKEND AZURE CỦA BẠN (GIỮ NGUYÊN ĐỂ KHÔNG BỊ LỖI LẠI)
+    const BASE_URL = 'https://lich-tuan-api-bcg9d2aqfgbwbbcv.eastasia-01.azurewebsites.net'; 
 
-    // 1. Hàm lấy danh sách khoa (GET)
+    // 1. Kiểm tra quyền và Lấy danh sách khoa
     const fetchDepartments = async () => {
         setLoading(true);
         try {
-            const token = localStorage.getItem('token');
+            // Lấy token và thông tin user từ LocalStorage
+            const token = localStorage.getItem('token') || localStorage.getItem('userToken');
+            const userStr = localStorage.getItem('user'); // Lấy thông tin user đã lưu khi login
+            
+            // Kiểm tra xem có phải admin không
+            if (userStr) {
+                const user = JSON.parse(userStr);
+                // Nếu role là 'admin' hoặc 'manager' thì cho phép sửa
+                if (user.role === 'admin' || user.role === 'manager') {
+                    setIsAdmin(true);
+                }
+            }
+
             const res = await fetch(`${BASE_URL}/api/departments`, {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
@@ -28,13 +41,12 @@ const DepartmentsPage = () => {
             setDepartments(data);
         } catch (error) {
             console.error(error);
-            message.error('Lỗi tải danh sách khoa: ' + error.message);
+            // message.error('Lỗi tải danh sách khoa: ' + error.message);
         } finally {
             setLoading(false);
         }
     };
 
-    // Gọi API khi vào trang
     useEffect(() => {
         fetchDepartments();
     }, []);
@@ -47,7 +59,7 @@ const DepartmentsPage = () => {
         }
 
         try {
-            const token = localStorage.getItem('token');
+            const token = localStorage.getItem('token') || localStorage.getItem('userToken');
             const res = await fetch(`${BASE_URL}/api/departments`, {
                 method: 'POST',
                 headers: {
@@ -63,7 +75,7 @@ const DepartmentsPage = () => {
                 message.success('Thêm khoa thành công!');
                 setNewDeptName('');
                 setIsModalVisible(false);
-                fetchDepartments(); // Tải lại danh sách
+                fetchDepartments();
             } else {
                 message.error(data.message || 'Lỗi khi thêm khoa');
             }
@@ -75,7 +87,7 @@ const DepartmentsPage = () => {
     // 3. Hàm xóa khoa (DELETE)
     const handleDelete = async (id) => {
         try {
-            const token = localStorage.getItem('token');
+            const token = localStorage.getItem('token') || localStorage.getItem('userToken');
             const res = await fetch(`${BASE_URL}/api/departments/${id}`, {
                 method: 'DELETE',
                 headers: { 'Authorization': `Bearer ${token}` }
@@ -83,9 +95,8 @@ const DepartmentsPage = () => {
 
             if (res.ok) {
                 message.success('Đã xóa khoa thành công!');
-                fetchDepartments(); // Tải lại bảng
+                fetchDepartments();
             } else {
-                // Xử lý trường hợp backend báo lỗi ràng buộc dữ liệu (như tôi đã nhắc ở server.js)
                 if (res.status === 409) {
                     message.warning('Không thể xóa: Khoa này đang có người dùng hoặc lịch liên quan.');
                 } else {
@@ -97,7 +108,7 @@ const DepartmentsPage = () => {
         }
     };
 
-    // Cấu hình cột cho bảng Ant Design
+    // 4. Cấu hình cột cho bảng (Logic ẩn hiện cột Xóa)
     const columns = [
         {
             title: 'STT',
@@ -110,8 +121,12 @@ const DepartmentsPage = () => {
             title: 'Tên Khoa / Phòng ban',
             dataIndex: 'name',
             key: 'name',
-        },
-        {
+        }
+    ];
+
+    // 👇 CHỈ THÊM CỘT "HÀNH ĐỘNG" (NÚT XÓA) NẾU LÀ ADMIN
+    if (isAdmin) {
+        columns.push({
             title: 'Hành động',
             key: 'action',
             width: 120,
@@ -126,17 +141,22 @@ const DepartmentsPage = () => {
                     <Button type="primary" danger icon={<DeleteOutlined />} size="small" />
                 </Popconfirm>
             ),
-        },
-    ];
+        });
+    }
 
     return (
         <div style={{ padding: 20 }}>
             <Card 
                 title="Quản lý Khoa & Phòng ban" 
                 extra={
-                    <Button type="primary" icon={<PlusOutlined />} onClick={() => setIsModalVisible(true)}>
-                        Thêm mới
-                    </Button>
+                    // 👇 CHỈ HIỂN THỊ NÚT "THÊM MỚI" NẾU LÀ ADMIN
+                    isAdmin ? (
+                        <Button type="primary" icon={<PlusOutlined />} onClick={() => setIsModalVisible(true)}>
+                            Thêm mới
+                        </Button>
+                    ) : (
+                        <Tag color="blue">Chế độ xem (User)</Tag>
+                    )
                 }
             >
                 <Table 
@@ -149,7 +169,7 @@ const DepartmentsPage = () => {
                 />
             </Card>
 
-            {/* Popup Thêm mới */}
+            {/* Popup Thêm mới (Chỉ Admin mới mở được modal này, nhưng cứ để code ở đây cũng ko sao) */}
             <Modal
                 title="Thêm Khoa / Phòng ban mới"
                 open={isModalVisible}
