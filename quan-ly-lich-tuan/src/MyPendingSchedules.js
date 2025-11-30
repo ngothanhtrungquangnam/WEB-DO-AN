@@ -12,7 +12,7 @@ const MyPendingSchedules = () => {
   const [schedules, setSchedules] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  // 1. Hàm lấy dữ liệu (Chỉ lấy lịch của mình + đang chờ duyệt)
+  // 1. Hàm lấy dữ liệu
   const fetchMyPendingSchedules = () => {
     setLoading(true);
     const token = localStorage.getItem('userToken');
@@ -62,17 +62,19 @@ const MyPendingSchedules = () => {
       .catch(() => message.error('Lỗi kết nối server'));
   };
 
-  // 3. Cấu hình bảng
+  // 3. Cấu hình bảng (ĐÃ CẬP NHẬT THÊM CỘT)
   const columns = [
     { 
         title: 'Ngày đăng ký', 
         dataIndex: 'ngay', 
         key: 'ngay',
+        width: 110,
         render: (text) => dayjs(text).format('DD/MM/YYYY')
     },
     { 
         title: 'Thời gian', 
         key: 'thoiGian',
+        width: 120,
         render: (record) => 
             <span style={{color: '#1890ff', fontWeight: 'bold'}}>
                 {record.batDau.slice(0,5)} - {record.ketThuc.slice(0,5)}
@@ -82,24 +84,60 @@ const MyPendingSchedules = () => {
         title: 'Nội dung', 
         dataIndex: 'noiDung', 
         key: 'noiDung',
-        width: '40%',
+        width: 250,
+        render: (html) => <div dangerouslySetInnerHTML={{ __html: html }} />
+    },
+    // 👇 CỘT MỚI: THÀNH PHẦN
+    { 
+        title: 'Thành phần', 
+        dataIndex: 'thanhPhan', 
+        key: 'thanhPhan',
+        width: 200,
         render: (html) => <div dangerouslySetInnerHTML={{ __html: html }} />
     },
     { 
         title: 'Địa điểm', 
         dataIndex: 'diaDiem', 
-        key: 'diaDiem' 
+        key: 'diaDiem',
+        width: 150,
+    },
+    // 👇 CỘT MỚI: KHOA / ĐƠN VỊ
+    { 
+        title: 'Khoa / Đơn vị', 
+        dataIndex: 'donVi', 
+        key: 'donVi',
+        width: 150,
+        render: (text) => <span style={{ color: '#1890ff', fontWeight: 500 }}>{text}</span>
+    },
+    // 👇 CỘT MỚI: CHỦ TRÌ
+    { 
+        title: 'Chủ trì', 
+        dataIndex: 'chuTriTen', 
+        key: 'chuTriTen',
+        width: 150,
+        render: (text) => <b>{text}</b>
+    },
+    // 👇 CỘT MỚI: TÀI KHOẢN CHỦ TRÌ
+    { 
+        title: 'Tài khoản chủ trì', 
+        dataIndex: 'chuTriEmail', 
+        key: 'chuTriEmail',
+        width: 180,
+        render: (text) => <span style={{ color: '#888' }}>{text}</span>
     },
     { 
         title: 'Trạng thái', 
         key: 'trangThai',
         align: 'center',
+        width: 120,
         render: () => <Tag icon={<ClockCircleOutlined />} color="warning">Chờ duyệt</Tag>
     },
     { 
         title: 'Hành động', 
         key: 'action',
         align: 'center',
+        width: 140,
+        fixed: 'right', // Cố định cột này bên phải
         render: (record) => (
             <Popconfirm 
                 title="Bạn muốn hủy đăng ký lịch này?" 
@@ -124,6 +162,9 @@ const MyPendingSchedules = () => {
             rowKey="id" 
             loading={loading}
             locale={{ emptyText: 'Bạn không có lịch nào đang chờ duyệt.' }}
+            // 👇 Thêm thanh cuộn ngang để bảng không bị vỡ khi nhiều cột
+            scroll={{ x: 1500 }} 
+            bordered
         />
       </Card>
     </div>
