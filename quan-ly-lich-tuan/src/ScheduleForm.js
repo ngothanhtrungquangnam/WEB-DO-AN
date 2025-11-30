@@ -7,13 +7,14 @@ import {
   Select,
   Switch,
   message,
-  Input 
+  Input,
+  Row, Col // 👈 Import thêm để chia cột
 } from 'antd';
 import { Editor } from '@tinymce/tinymce-react';
 
 const { RangePicker } = TimePicker;
 
-// --- 1. ĐỊNH NGHĨA API URL CHUẨN (NODE.JS) ---
+// --- ĐỊNH NGHĨA API URL ---
 const BASE_API_URL = 'https://lich-tuan-api-bcg9d2aqfgbwbbcv.eastasia-01.azurewebsites.net/api';
 
 const ScheduleForm = () => {
@@ -21,13 +22,17 @@ const ScheduleForm = () => {
   const editorNoiDungRef = useRef(null);
   const editorThanhPhanRef = useRef(null);
   
+  // State cũ
   const [locationOptions, setLocationOptions] = useState([]);
   const [hostOptions, setHostOptions] = useState([]); 
-  
-  // 👇 1. STATE MỚI CHO KHOA/PHÒNG BAN
   const [departmentOptions, setDepartmentOptions] = useState([]); 
 
-  // --- 2. LOGIC FETCH DỮ LIỆU TỪ API ---
+  // 👇 STATE MỚI CHO TÍNH NĂNG CHỌN PHÒNG
+  const [roomOptions, setRoomOptions] = useState([]); 
+  const [isRoomDisabled, setIsRoomDisabled] = useState(true); // Mặc định khóa ô chọn phòng
+  const [selectedLocationName, setSelectedLocationName] = useState(''); // Lưu tên Khu để gửi về server
+
+  // --- LOGIC FETCH DỮ LIỆU TỪ API ---
   useEffect(() => {
     const token = localStorage.getItem('userToken'); 
 
@@ -36,7 +41,7 @@ const ScheduleForm = () => {
         'Authorization': `Bearer ${token}` 
     };
 
-    // Hàm lấy danh sách Chủ trì
+    // 1. Lấy danh sách Chủ trì
     const fetchHostOptions = () => {
         fetch(`${BASE_API_URL}/active-users`, { headers })
         .then(res => res.json())
@@ -44,23 +49,23 @@ const ScheduleForm = () => {
         .catch(() => message.error('Lỗi tải danh sách chủ trì.'));
     };
 
-    // Hàm lấy danh sách Địa điểm
+    // 2. Lấy danh sách Địa điểm (Khu vực)
     const fetchLocationOptions = () => {
         fetch(`${BASE_API_URL}/locations`, { headers })
         .then(res => res.json())
         .then(data => {
-            const formatted = data.map(loc => ({ label: loc.ten, value: loc.ten }));
+            // 👇 QUAN TRỌNG: Value phải là ID để lát gọi API lấy phòng
+            const formatted = data.map(loc => ({ label: loc.ten, value: loc.id }));
             setLocationOptions(formatted);
         })
         .catch(() => console.error('Lỗi tải địa điểm'));
     };
 
-    // 👇 3. HÀM MỚI: LẤY DANH SÁCH KHOA TỪ API
+    // 3. Lấy danh sách Khoa
     const fetchDepartmentOptions = () => {
         fetch(`${BASE_API_URL}/departments`, { headers })
         .then(res => res.json())
         .then(data => {
-            // Chuyển đổi dữ liệu API thành dạng { label, value } cho Select
             const formatted = data.map(dept => ({ label: dept.name, value: dept.name }));
             setDepartmentOptions(formatted);
         })
@@ -69,12 +74,44 @@ const ScheduleForm = () => {
 
     fetchHostOptions();
     fetchLocationOptions();
-    fetchDepartmentOptions(); // <-- Gọi hàm này
+    fetchDepartmentOptions();
 
   }, []); 
 
+  // 👇 HÀM MỚI: XỬ LÝ KHI NGƯỜI DÙNG CHỌN KHU VỰC
+  const handleLocationChange = (locationId, option) => {
+    // 1. Reset ô chọn phòng
+    form.setFieldsValue({ soPhong: undefined });
+    setRoomOptions([]);
+    
+    // 2. Lưu tên khu vực (để lát submit form dùng tên này chứ không dùng ID)
+    setSelectedLocationName(option.label);
 
-// --- 3. LOGIC SUBMIT FORM (Đã sửa lỗi Giờ) ---
+    // 3. Gọi API lấy danh sách phòng theo ID Khu vực
+    const token = localStorage.getItem('userToken');
+    
+    fetch(`${BASE_API_URL}/locations/${locationId}/rooms`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+    })
+    .then(res => res.json())
+    .then(data => {
+        if (data && data.length > 0) {
+            // Nếu có phòng: Map dữ liệu và Mở khóa
+            const rooms = data.map(r => ({ label: r.name, value: r.name }));
+            setRoomOptions(rooms);
+            setIsRoomDisabled(false);
+        } else {
+            // Nếu không có phòng: Khóa lại
+            setIsRoomDisabled(true);
+        }
+    })
+    .catch(() => {
+        console.error('Lỗi lấy danh sách phòng');
+        setIsRoomDisabled(true);
+    });
+  };
+
+  // --- LOGIC SUBMIT FORM ---
   const onFinish = (values) => {
     const noiDung = editorNoiDungRef.current ? editorNoiDungRef.current.getContent() : '';
     const thanhPhan = editorThanhPhanRef.current ? editorThanhPhanRef.current.getContent() : '';
@@ -84,26 +121,37 @@ const ScheduleForm = () => {
       return; 
     }
 
-    // 1. XỬ LÝ NGÀY: Chuyển thành chuỗi YYYY-MM-DD
+    // Xử lý Ngày (Fix Timezone)
     const formattedDate = values.ngay ? values.ngay.format('YYYY-MM-DD') : null;
 
-    // 👇 2. XỬ LÝ GIỜ (MỚI): Chuyển thành chuỗi cứng để không bị trừ giờ
+    // Xử lý Giờ (Fix Timezone)
     let formattedThoiGian = null;
     if (values.thoiGian && values.thoiGian.length === 2) {
         formattedThoiGian = [
-            // Format thành chuỗi đầy đủ, Server sẽ lấy đúng số giờ này
             values.thoiGian[0].format('YYYY-MM-DD HH:mm'), 
             values.thoiGian[1].format('YYYY-MM-DD HH:mm')
         ];
     }
 
+    // 👇 XỬ LÝ ĐỊA ĐIỂM: GỘP TÊN KHU + TÊN PHÒNG
+    // Nếu chọn phòng thì gộp lại, nếu không thì chỉ lấy tên Khu
+    let finalDiaDiem = selectedLocationName; 
+    if (values.soPhong) {
+        finalDiaDiem = `${selectedLocationName} - Phòng ${values.soPhong}`;
+    }
+    // (Lưu ý: values.diaDiem đang chứa ID, ta không dùng nó để gửi lên server, ta dùng finalDiaDiem)
+
     const fullData = {
       ...values, 
-      ngay: formattedDate,       // ✅ Ngày đã sửa
-      thoiGian: formattedThoiGian, // ✅ Giờ đã sửa (Thêm dòng này)
+      ngay: formattedDate,
+      thoiGian: formattedThoiGian,
+      diaDiem: finalDiaDiem, // Gửi chuỗi text đã gộp
       noiDung,
       thanhPhan,
     };
+
+    // Xóa field thừa không cần gửi
+    delete fullData.soPhong; 
 
     const token = localStorage.getItem('userToken');
 
@@ -125,6 +173,11 @@ const ScheduleForm = () => {
       } else {
           message.success(result.message || 'Đăng ký thành công!');
           form.resetFields(); 
+          
+          // Reset các state phụ
+          setIsRoomDisabled(true); 
+          setSelectedLocationName('');
+
           if (editorNoiDungRef.current) editorNoiDungRef.current.setContent('');
           if (editorThanhPhanRef.current) editorThanhPhanRef.current.setContent('');
       }
@@ -137,6 +190,7 @@ const ScheduleForm = () => {
         }
     });
   };
+
   const handleHostChange = (selectedValue) => {
     const selectedUser = hostOptions.find(u => u.value === selectedValue); 
     if (selectedUser) {
@@ -161,7 +215,8 @@ const ScheduleForm = () => {
         <Form.Item name="thoiGian" label="Thời gian (Bắt đầu - Kết thúc)" rules={[{ required: true, message: 'Vui lòng chọn thời gian!' }]}>
           <RangePicker format="HH:mm" style={{ width: '100%' }} />
         </Form.Item>
-      <div style={{ display: 'flex', gap: '40px', marginBottom: '10px' }}>
+      
+        <div style={{ display: 'flex', gap: '40px', marginBottom: '10px' }}>
             <Form.Item name="thuocPhuLuc" label="Thuộc phụ lục" valuePropName="checked" style={{ marginBottom: 0 }}>
                 <Switch />
             </Form.Item>
@@ -170,6 +225,7 @@ const ScheduleForm = () => {
                 <Switch style={{ backgroundColor: '#ff4d4f' }} />
             </Form.Item>
         </div>
+        
         <Form.Item label="Nội dung">
           <Editor apiKey='gcwiz4nqpl1ayyyc6jufm6ubb04zdbvio0dct1vaec17lrql' onInit={(evt, editor) => editorNoiDungRef.current = editor} init={{ height: 250, menubar: false, plugins: 'anchor autolink link lists searchreplace table visualblocks wordcount', toolbar: 'undo redo | blocks | bold italic forecolor | alignleft aligncenter alignright alignjustify | bullist numlist outdent indent | removeformat | table link' }} />
         </Form.Item>
@@ -180,18 +236,32 @@ const ScheduleForm = () => {
           <Switch />
         </Form.Item>
         
-        <Form.Item name="diaDiem" label="Địa điểm" rules={[{ required: true, message: 'Vui lòng chọn địa điểm!' }]}>
-          <Select showSearch placeholder="Chọn địa điểm" options={locationOptions} loading={locationOptions.length === 0} />
-        </Form.Item>
+        {/* 👇 GIAO DIỆN CHIA CỘT ĐỊA ĐIỂM + SỐ PHÒNG */}
+        <Row gutter={16}>
+            <Col span={12}>
+                <Form.Item name="diaDiem" label="Địa điểm (Khu)" rules={[{ required: true, message: 'Vui lòng chọn địa điểm!' }]}>
+                    <Select 
+                        showSearch 
+                        placeholder="Chọn Khu vực" 
+                        options={locationOptions} 
+                        onChange={handleLocationChange} // Gắn hàm xử lý mới
+                    />
+                </Form.Item>
+            </Col>
+            <Col span={12}>
+                <Form.Item name="soPhong" label="Số phòng">
+                    <Select 
+                        showSearch
+                        placeholder="Chọn số phòng"
+                        options={roomOptions}
+                        disabled={isRoomDisabled} // Khóa nếu chưa chọn Khu
+                        allowClear
+                    />
+                </Form.Item>
+            </Col>
+        </Row>
 
-        {/* 👇 4. THÊM Ô CHỌN KHOA/PHÒNG BAN VÀO ĐÂY */}
-        {/* Giả sử bạn muốn lưu tên khoa vào một biến nào đó, ví dụ 'donViToChuc' hoặc 'khoaPhong' */}
-        {/* Nếu Database bảng schedules chưa có cột này, bạn cần thêm cột vào DB trước (như bước 1 tôi hướng dẫn) */}
-        <Form.Item 
-            name="donVi" // Tên field này tùy bạn đặt, nhớ phải khớp với cột trong DB nếu có
-            label="Khoa / Phòng ban" 
-            // rules={[{ required: true, message: 'Vui lòng chọn đơn vị!' }]} // Bỏ comment nếu muốn bắt buộc
-        >
+        <Form.Item name="donVi" label="Khoa / Phòng ban">
           <Select 
             showSearch 
             placeholder="Chọn Khoa / Phòng ban" 

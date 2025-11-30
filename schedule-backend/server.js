@@ -597,7 +597,45 @@ app.use((err, req, res, next) => {
     
     res.status(err.status || 500).json(errorResponse);
 });
+// =============================================================
+// API QUẢN LÝ PHÒNG (ROOMS) - DÀNH CHO ADMIN
+// =============================================================
 
+// 1. Lấy danh sách phòng theo ID Khu vực
+app.get('/api/locations/:id/rooms', authMiddleware, (req, res) => {
+    const locationId = req.params.id;
+    const sql = "SELECT * FROM rooms WHERE location_id = ? ORDER BY name ASC";
+    
+    db.query(sql, [locationId], (err, results) => {
+        if (err) {
+            console.error(err);
+            return res.status(500).json({ message: 'Lỗi server.' });
+        }
+        res.json(results);
+    });
+});
+
+// 2. Thêm Phòng mới vào Khu vực
+app.post('/api/rooms', authMiddleware, adminMiddleware, (req, res) => {
+    const { name, location_id } = req.body;
+    
+    if (!name || !location_id) return res.status(400).json({ message: 'Thiếu thông tin.' });
+
+    const sql = "INSERT INTO rooms (name, location_id) VALUES (?, ?)";
+    db.query(sql, [name, location_id], (err, result) => {
+        if (err) return res.status(500).json({ message: 'Lỗi thêm phòng.' });
+        res.json({ message: 'Thêm phòng thành công!', id: result.insertId });
+    });
+});
+
+// 3. Xóa Phòng
+app.delete('/api/rooms/:id', authMiddleware, adminMiddleware, (req, res) => {
+    const id = req.params.id;
+    db.query("DELETE FROM rooms WHERE id = ?", [id], (err, result) => {
+        if (err) return res.status(500).json({ message: 'Lỗi xóa phòng.' });
+        res.json({ message: 'Đã xóa phòng.' });
+    });
+});
 // Lấy port từ Azure (quan trọng!)
 const PORT = process.env.PORT || 8080;
 
