@@ -1,11 +1,12 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Button, Spin, Empty, Typography, Select, Space, message, Card, Tooltip, Badge } from 'antd';
+import { Button, Spin, Empty, Typography, Select, Space, message, Card, Tooltip } from 'antd';
 import { ReloadOutlined, CalendarOutlined, EnvironmentOutlined, ClockCircleOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import weekOfYear from 'dayjs/plugin/weekOfYear';
 import isoWeek from 'dayjs/plugin/isoWeek';
 import advancedFormat from 'dayjs/plugin/advancedFormat';
 
+// Cấu hình Dayjs
 dayjs.extend(weekOfYear);
 dayjs.extend(isoWeek);
 dayjs.extend(advancedFormat);
@@ -16,63 +17,63 @@ const { Option } = Select;
 const BASE_API_URL = 'https://lich-tuan-api-bcg9d2aqfgbwbbcv.eastasia-01.azurewebsites.net/api';
 
 const WeeklyTimetable = () => {
-  const currentWeek = dayjs().isoWeek();
-  const [selectedWeek, setSelectedWeek] = useState(''); // Để rỗng ban đầu, useEffect sẽ set sau
+  const [selectedWeekStart, setSelectedWeekStart] = useState(''); 
   const [schedules, setSchedules] = useState([]);
   const [loading, setLoading] = useState(false);
   const [locations, setLocations] = useState([]);
   const [filterLocation, setFilterLocation] = useState('all');
   const [displayedRooms, setDisplayedRooms] = useState([]);
 
-  // --- HÀM 0: DANH SÁCH TUẦN ---
-  // --- HÀM 0: TẠO DANH SÁCH TUẦN (ĐÃ FIX ĐỒNG BỘ) ---
+  // --- HÀM 0: TẠO DANH SÁCH TUẦN (LOGIC SỬA LỖI LỆCH THỨ) ---
   const weekOptions = useMemo(() => {
     const options = [];
     
-    // 1. Xác định ngày bắt đầu Tuần 1 chuẩn
-    // Lấy ngày 1/1 của năm
-    const startOfYear = dayjs().startOf('year'); 
-    // Lấy ngày Thứ 2 của tuần chứa ngày 1/1 (Nó sẽ ra ngày 30/12/2024)
-    let start = dayjs('2025-01-07');
+    // Mốc thời gian của trường: Tuần 1 bắt đầu từ Thứ 3 (07/01/2025)
+    let schoolWeekStart = dayjs('2025-01-07'); 
 
-    // 👇 LOGIC FIX: Nếu Thứ 2 đó rơi vào năm ngoái (2024), ta cộng thêm 1 tuần để nhảy sang 2025
-    if (start.year() < startOfYear.year()) {
-        start = start.add(1, 'week'); 
-        // Kết quả: start sẽ là 06/01/2025 (Khớp với logic của trường bạn)
-    }
-
-    // 2. Tạo danh sách 52 tuần
+    // Tạo 52 tuần
     for (let i = 1; i <= 52; i++) {
-        const end = start.add(6, 'day');
+        // Tính ngày kết thúc của tuần học (Thứ 3 -> Thứ 2 tuần sau)
+        const schoolWeekEnd = schoolWeekStart.add(6, 'day');
         
-        // Kiểm tra xem đây có phải tuần hiện tại không
-        // So sánh ngày hôm nay có nằm trong khoảng start-end này không
-        const isCurrent = dayjs().isAfter(start.subtract(1, 'minute')) && dayjs().isBefore(end.add(1, 'minute'));
+        // Kiểm tra tuần hiện tại
+        const isCurrent = dayjs().isAfter(schoolWeekStart.subtract(1, 'minute')) && dayjs().isBefore(schoolWeekEnd.add(1, 'minute'));
         const currentLabel = isCurrent ? ' (Hiện tại)' : '';
 
-        // Format label: Tuần 1 [06/01 - 12/01]
-        const label = `Tuần ${i}${currentLabel} [${start.format('DD/MM')} - ${end.format('DD/MM')}]`;
+        // 1. LABEL (Hiển thị cho người dùng): Giữ nguyên theo lịch trường (07/01...)
+        const label = `Tuần ${i}${currentLabel} [${schoolWeekStart.format('DD/MM/YYYY')} - ${schoolWeekEnd.format('DD/MM/YYYY')}]`;
         
-        // Value lưu ngày bắt đầu để lát query API
-        options.push({ label, value: start.format('YYYY-MM-DD'), startRaw: start, endRaw: end });
+        // 2. VALUE (Giá trị để vẽ bảng): 👇 QUAN TRỌNG: Quy đổi về THỨ 2 (ISO Monday)
+        // Để khi vẽ cột T2, T3... nó khớp với lịch chuẩn.
+        const isoMonday = schoolWeekStart.startOf('isoWeek'); 
+
+        options.push({ 
+            label: label, 
+            value: isoMonday.format('YYYY-MM-DD'), // Lưu giá trị là Thứ 2
+            startRaw: isoMonday, 
+            endRaw: isoMonday.add(6, 'day') 
+        });
         
         // Nhảy sang tuần tiếp theo
-        start = start.add(1, 'week');
+        schoolWeekStart = schoolWeekStart.add(1, 'week');
     }
-    
     return options;
   }, []);
 
-  // 👇 SỬA LẠI STATE KHỞI TẠO ĐỂ NÓ CHỌN ĐÚNG TUẦN HIỆN TẠI MỚI
+  // --- TỰ ĐỘNG CHỌN TUẦN HIỆN TẠI ---
   useEffect(() => {
-      // Tìm tuần hiện tại trong danh sách options vừa tạo
-      const today = dayjs();
-      const currentOption = weekOptions.find(w => 
-          today.isAfter(w.startRaw.subtract(1, 'day')) && today.isBefore(w.endRaw.add(1, 'day'))
-      );
-      
-      if (currentOption) {
-          setSelectedWeek(currentOption.value);
+      if (weekOptions.length > 0 && !selectedWeekStart) {
+          const today = dayjs();
+          // Tìm tuần chứa ngày hôm nay (dựa trên khoảng thời gian ISO Mon-Sun)
+          const currentOption = weekOptions.find(w => 
+              today.isSame(w.startRaw, 'day') || (today.isAfter(w.startRaw) && today.isBefore(w.endRaw.add(1, 'day')))
+          );
+          
+          if (currentOption) {
+              setSelectedWeekStart(currentOption.value);
+          } else {
+              setSelectedWeekStart(weekOptions[0].value);
+          }
       }
   }, [weekOptions]);
 
@@ -91,13 +92,16 @@ const WeeklyTimetable = () => {
 
   // --- HÀM 2: LẤY LỊCH ---
   const fetchSchedules = () => {
+    if (!selectedWeekStart) return;
+
     setLoading(true);
     const token = localStorage.getItem('userToken');
-    const weekObj = weekOptions.find(w => w.value === selectedWeek);
     
-    if (!weekObj) { setLoading(false); return; }
+    // Query từ Thứ 2 đến Chủ Nhật (Chuẩn ISO)
+    const startStr = selectedWeekStart;
+    const endStr = dayjs(selectedWeekStart).add(6, 'day').format('YYYY-MM-DD');
 
-    const query = `?startDate=${weekObj.startRaw.format('YYYY-MM-DD')}&endDate=${weekObj.endRaw.format('YYYY-MM-DD')}`;
+    const query = `?startDate=${startStr}&endDate=${endStr}`;
 
     fetch(`${BASE_API_URL}/schedules${query}`, {
         headers: { 'Authorization': `Bearer ${token}` }
@@ -114,7 +118,7 @@ const WeeklyTimetable = () => {
     });
   };
 
-  useEffect(() => { fetchSchedules(); }, [selectedWeek]);
+  useEffect(() => { fetchSchedules(); }, [selectedWeekStart]);
 
   // --- HÀM 3: LỌC PHÒNG ---
   useEffect(() => {
@@ -129,7 +133,7 @@ const WeeklyTimetable = () => {
     setDisplayedRooms(rooms.sort());
   }, [schedules, filterLocation]);
 
-  // --- HÀM 4: VẼ Ô DỮ LIỆU (UI ĐẸP HƠN) ---
+  // --- HÀM 4: VẼ Ô DỮ LIỆU ---
   const getCellContent = (room, dayIndex, session) => {
     const events = schedules.filter(s => {
         const sDate = dayjs(s.ngay);
@@ -137,12 +141,10 @@ const WeeklyTimetable = () => {
         const hour = parseInt(sTimeStart.split(':')[0]);
         const isSameRoom = s.diaDiem === room;
         
-        const weekObj = weekOptions.find(w => w.value === selectedWeek);
-        let isDateMatch = false;
-        if(weekObj) {
-            const columnDate = weekObj.startRaw.add(dayIndex, 'day');
-            isDateMatch = sDate.isSame(columnDate, 'day');
-        }
+        // Vì selectedWeekStart đã được chuẩn hóa về Thứ 2
+        // Nên selectedWeekStart + 6 ngày chính xác là Chủ Nhật
+        const columnDate = dayjs(selectedWeekStart).add(dayIndex, 'day');
+        const isDateMatch = sDate.isSame(columnDate, 'day');
         
         let isSessionMatch = false;
         if (session === 'Sáng' && hour < 12) isSessionMatch = true;
@@ -171,7 +173,7 @@ const WeeklyTimetable = () => {
                     <div className="event-card">
                         <div className="event-time">
                             <ClockCircleOutlined style={{ marginRight: 4, fontSize: '10px' }} />
-                            {evt.batDau.slice(0,5)} - {evt.ketThuc ? evt.ketThuc.slice(0,5) : ''}
+                            {evt.batDau.slice(0,5)} - {evt.ketThuc ? evt.ketThuc.slice(0,5) : '...'}
                         </div>
                         <div className="event-host">
                             {evt.chuTriTen}
@@ -186,7 +188,6 @@ const WeeklyTimetable = () => {
   return (
     <div style={{ padding: '20px', background: '#f0f2f5', minHeight: '100vh' }}>
       
-      {/* 1. THANH TOOLBAR */}
       <Card bordered={false} style={{ marginBottom: 16, borderRadius: 8, boxShadow: '0 2px 8px rgba(0,0,0,0.05)' }}>
         <Space wrap size="large" style={{width: '100%', justifyContent: 'space-between'}}>
             <Space>
@@ -199,10 +200,14 @@ const WeeklyTimetable = () => {
                 <Space direction="vertical" size={0}>
                     <Text type="secondary" style={{fontSize: 12}}>Chọn Tuần:</Text>
                     <Select 
-                        value={selectedWeek}
-                        style={{ width: 240 }}
-                        onChange={(val) => setSelectedWeek(val)}
+                        value={selectedWeekStart}
+                        style={{ width: 280 }}
+                        onChange={(val) => setSelectedWeekStart(val)}
                         options={weekOptions} 
+                        showSearch
+                        filterOption={(input, option) =>
+                            (option?.label ?? '').toLowerCase().includes(input.toLowerCase())
+                        }
                     />
                 </Space>
 
@@ -228,7 +233,6 @@ const WeeklyTimetable = () => {
         </Space>
       </Card>
 
-      {/* 2. BẢNG DỮ LIỆU */}
       <Spin spinning={loading}>
         {displayedRooms.length === 0 ? (
             <Empty description="Không có lịch nào được tìm thấy" image={Empty.PRESENTED_IMAGE_SIMPLE} style={{marginTop: 50}} />
@@ -236,31 +240,32 @@ const WeeklyTimetable = () => {
             <div className="timetable-container shadow-box">
                 <table className="custom-table">
                     <thead>
-                        {/* Header Ngày */}
                         <tr>
                             <th rowSpan={2} className="sticky-col sticky-header-top z-high">
                                 Phòng / Địa điểm
                             </th>
+                            {/* 👇 VÒNG LẶP HEADER NGÀY (Chuẩn ISO Mon-Sun) */}
                             {[0, 1, 2, 3, 4, 5, 6].map((dayIndex) => {
-                                const weekObj = weekOptions.find(w => w.value === selectedWeek);
-                                let subDate = weekObj ? weekObj.startRaw.add(dayIndex, 'day') : null;
-                                let isToday = subDate && subDate.isSame(dayjs(), 'day');
+                                // selectedWeekStart bây giờ ĐÃ LÀ THỨ 2 (Do logic fix bên trên)
+                                const currentDate = dayjs(selectedWeekStart).add(dayIndex, 'day');
+                                const isToday = currentDate.isSame(dayjs(), 'day');
+                                
+                                // Lấy tên Thứ
+                                const dayOfWeek = currentDate.day(); 
+                                const dayName = dayOfWeek === 0 ? 'Chủ Nhật' : `Thứ ${dayOfWeek + 1}`;
 
                                 return (
                                     <th key={dayIndex} colSpan={3} className={`sticky-header-top ${isToday ? 'highlight-today' : ''}`}>
                                         <div style={{ textTransform: 'uppercase', fontSize: '13px' }}>
-                                            {dayIndex === 6 ? 'Chủ Nhật' : `Thứ ${dayIndex + 2}`}
+                                            {dayName}
                                         </div>
-                                        {subDate && (
-                                            <div style={{ fontSize: '11px', color: isToday ? '#fff' : '#666', fontWeight: 'normal' }}>
-                                                {subDate.format('DD/MM/YYYY')}
-                                            </div>
-                                        )}
+                                        <div style={{ fontSize: '11px', color: isToday ? '#fff' : '#666', fontWeight: 'normal' }}>
+                                            {currentDate.format('DD/MM/YYYY')}
+                                        </div>
                                     </th>
                                 );
                             })}
                         </tr>
-                        {/* Header Buổi */}
                         <tr>
                             {[0, 1, 2, 3, 4, 5, 6].map((_, index) => (
                                 <React.Fragment key={index}>
@@ -292,12 +297,10 @@ const WeeklyTimetable = () => {
         )}
       </Spin>
 
-      {/* 3. CSS "XỊN" (Được nhúng trực tiếp) */}
       <style jsx>{`
-        /* Container của bảng */
         .timetable-container {
             overflow: auto;
-            max-height: 75vh; /* Giới hạn chiều cao để scroll dọc */
+            max-height: 75vh; 
             background: #fff;
             border-radius: 8px;
             border: 1px solid #f0f0f0;
@@ -305,25 +308,19 @@ const WeeklyTimetable = () => {
         .shadow-box {
             box-shadow: 0 4px 12px rgba(0,0,0,0.05);
         }
-
-        /* Table Reset */
         .custom-table {
             width: 100%;
-            border-collapse: separate; /* Bắt buộc để sticky hoạt động */
+            border-collapse: separate; 
             border-spacing: 0;
             font-size: 13px;
             color: #333;
         }
-
-        /* Border cho các ô */
         .custom-table th, .custom-table td {
             border-right: 1px solid #f0f0f0;
             border-bottom: 1px solid #f0f0f0;
             padding: 8px;
             vertical-align: top;
         }
-
-        /* --- STICKY HEADERS (Cố định tiêu đề) --- */
         .sticky-header-top {
             position: sticky;
             top: 0;
@@ -334,7 +331,7 @@ const WeeklyTimetable = () => {
         }
         .sticky-header-sub {
             position: sticky;
-            top: 53px; /* Chiều cao của dòng header trên */
+            top: 53px; 
             background-color: #fff;
             z-index: 10;
             text-align: center;
@@ -342,16 +339,14 @@ const WeeklyTimetable = () => {
             color: #888;
             box-shadow: 0 1px 2px rgba(0,0,0,0.05);
         }
-        
-        /* --- STICKY COLUMN (Cố định cột Phòng) --- */
         .sticky-col {
             position: sticky;
             left: 0;
             background-color: #fff;
-            z-index: 11; /* Cao hơn nội dung */
+            z-index: 11;
             border-right: 2px solid #f0f0f0;
         }
-        .z-high { z-index: 20; } /* Góc trên cùng bên trái */
+        .z-high { z-index: 20; } 
 
         .room-name-cell {
             font-weight: 600;
@@ -361,22 +356,16 @@ const WeeklyTimetable = () => {
             max-width: 200px;
             vertical-align: middle !important;
         }
-
-        /* Highlight ngày hiện tại */
         .highlight-today {
             background-color: #1890ff !important;
             color: white !important;
         }
-
-        /* Hiệu ứng hover dòng */
         .table-row-hover:hover td {
             background-color: #fcfcfc;
         }
         .table-row-hover:hover .sticky-col {
-            background-color: #e6f7ff; /* Highlight tên phòng khi hover dòng */
+            background-color: #e6f7ff;
         }
-
-        /* --- EVENT CARD (Thẻ lịch đẹp) --- */
         .event-card {
             background-color: #e6f7ff;
             border-left: 3px solid #1890ff;
