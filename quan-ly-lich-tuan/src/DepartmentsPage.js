@@ -15,21 +15,32 @@ const DepartmentsPage = () => {
     const BASE_URL = 'https://lich-tuan-api-bcg9d2aqfgbwbbcv.eastasia-01.azurewebsites.net'; 
 
     // 1. Kiểm tra quyền và Lấy danh sách khoa
+  // Thay thế hàm fetchDepartments cũ bằng hàm này:
     const fetchDepartments = async () => {
         setLoading(true);
         try {
-            // Lấy token và thông tin user từ LocalStorage
             const token = localStorage.getItem('token') || localStorage.getItem('userToken');
-            const userStr = localStorage.getItem('user'); // Lấy thông tin user đã lưu khi login
+            const userStr = localStorage.getItem('user'); // Lấy thông tin user
             
-            // Kiểm tra xem có phải admin không
+            // --- BẮT ĐẦU ĐOẠN KIỂM TRA QUYỀN MỚI ---
             if (userStr) {
                 const user = JSON.parse(userStr);
-                // Nếu role là 'admin' hoặc 'manager' thì cho phép sửa
-                if (user.role === 'admin' || user.role === 'manager') {
+                
+                // In ra Console để bạn kiểm tra xem máy tính đang đọc được gì
+                console.log("CHECK QUYỀN - User Role đang là:", user.role);
+
+                // Chuyển role về chữ thường để so sánh cho chắc chắn
+                const role = user.role ? user.role.toLowerCase() : '';
+
+                if (role === 'admin' || role === 'manager') {
+                    console.log("=> Máy tính hiểu là: ADMIN (Hiện nút Thêm/Xóa)");
                     setIsAdmin(true);
+                } else {
+                    console.log("=> Máy tính hiểu là: USER (Ẩn nút Thêm/Xóa)");
+                    setIsAdmin(false);
                 }
             }
+            // --- KẾT THÚC ĐOẠN KIỂM TRA ---
 
             const res = await fetch(`${BASE_URL}/api/departments`, {
                 headers: { 'Authorization': `Bearer ${token}` }
@@ -41,7 +52,6 @@ const DepartmentsPage = () => {
             setDepartments(data);
         } catch (error) {
             console.error(error);
-            // message.error('Lỗi tải danh sách khoa: ' + error.message);
         } finally {
             setLoading(false);
         }
