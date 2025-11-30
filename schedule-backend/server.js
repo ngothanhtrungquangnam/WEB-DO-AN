@@ -29,24 +29,31 @@ if (!process.env.JWT_SECRET && process.env.NODE_ENV === 'production') {
 }
 
 // ✅ SỬA: Dùng environment variables cho database
-const db = mysql.createConnection({
+const db = mysql.createPool({
     host: process.env.DB_HOST || 'mysql-2f0f2f65-quanlylichtuan2025.g.aivencloud.com',
     port: parseInt(process.env.DB_PORT || '11845'),
     user: process.env.DB_USER || 'avnadmin',
     password: process.env.DB_PASSWORD || 'AVNS_0yRZ11XzXUYlvr1inPx',
     database: process.env.DB_NAME || 'defaultdb',
-    connectTimeout: 10000,
     ssl: {
         rejectUnauthorized: false    
-    }
+    },
+    // 👇 Thêm các dòng cấu hình cho Pool
+    waitForConnections: true,
+    connectionLimit: 10, // Giới hạn số kết nối cùng lúc
+    queueLimit: 0,
+    enableKeepAlive: true,
+    keepAliveInitialDelay: 0
 });
 
-db.connect((err) => {
+// Kiểm tra kết nối thử một lần (Không bắt buộc nhưng nên có để debug)
+db.getConnection((err, connection) => {
     if (err) {
-        console.error('❌ Kết nối Database thất bại:', err);
-        process.exit(1);
+        console.error('❌ Lỗi kết nối Pool:', err);
+    } else {
+        console.log('✅ Kết nối Database qua Pool thành công!');
+        connection.release(); // Trả kết nối về hồ chứa
     }
-    console.log('✅ Đã kết nối Database Aiven thành công!');
 });
 
 // ✅ THÊM: Middleware logging
