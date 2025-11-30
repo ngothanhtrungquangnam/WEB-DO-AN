@@ -175,6 +175,7 @@ const ScheduleDashboard = () => {
 
   const handleSwitchChange = (setter) => (checked) => setter(checked);
   
+ // --- CẤU HÌNH CỘT (ĐÃ SỬA LỖI RÚT GỌN NỘI DUNG) ---
   const columns = [
     { 
         title: 'Thứ Ngày', 
@@ -202,62 +203,96 @@ const ScheduleDashboard = () => {
         className: 'column-header-custom',
         render: (record) => <b>{`${record.batDau.slice(0, 5)} - ${record.ketThuc.slice(0, 5)}`}</b> 
     },
-    // 👇👇 CẬP NHẬT CỘT NỘI DUNG 👇👇
+    // 👇👇 CẬP NHẬT CỘT NỘI DUNG: RÚT GỌN THÔNG MINH 👇👇
     { 
         title: 'Nội Dung', 
         dataIndex: 'noiDung', 
         key: 'noiDung', 
         className: 'column-header-custom', 
-        render: (text, record) => (
-            <div>
-                {/* 1. Lịch Bổ Sung: Chỉ hiện Tag Đỏ nếu là ADMIN */}
-                {record.isBoSung === 1 && isAdmin && (
-                    <Tag color="#ff4d4f" style={{ marginBottom: 5, fontWeight: 'bold' }}>LỊCH BỔ SUNG</Tag>
-                )}
+        render: (text, record) => {
+            // Kiểm tra kỹ: MySQL trả về 1, React trả về true -> Check cả 2
+            const isPhuLuc = record.thuocPhuLuc === 1 || record.thuocPhuLuc === true;
+            const isBoSung = record.isBoSung === 1 || record.isBoSung === true;
 
-                {/* 2. Thuộc Phụ Lục: Ẩn nội dung, hiện nút Xem chi tiết */}
-                {record.thuocPhuLuc === 1 ? (
-                    <div>
-                        <Tag color="geekblue" style={{ marginBottom: 5 }}>PHỤ LỤC</Tag>
-                        <div style={{ fontStyle: 'italic', color: '#888', marginBottom: 5, fontSize: '12px' }}>
-                            (Nội dung chi tiết xem tại phụ lục)
+            // Hàm cắt ngắn text nếu quá dài (cho trường hợp không phải phụ lục)
+            const stripText = (html) => {
+                const tmp = document.createElement("DIV");
+                tmp.innerHTML = html;
+                return tmp.textContent || tmp.innerText || "";
+            };
+            const plainText = stripText(text);
+            const isLongText = plainText.length > 150; // Dài hơn 150 ký tự coi là dài
+
+            return (
+                <div>
+                    {/* Tag Bổ Sung */}
+                    {isBoSung && (
+                        <Tag color="#ff4d4f" style={{ marginBottom: 5, fontWeight: 'bold' }}>LỊCH BỔ SUNG</Tag>
+                    )}
+
+                    {/* Xử lý hiển thị */}
+                    {isPhuLuc ? (
+                        // TRƯỜNG HỢP 1: LÀ PHỤ LỤC -> Luôn ẩn, hiện nút xem
+                        <div>
+                            <Tag color="geekblue" style={{ marginBottom: 5 }}>PHỤ LỤC</Tag>
+                            <div style={{ fontStyle: 'italic', color: '#888', marginBottom: 5, fontSize: '12px' }}>
+                                (Nội dung chi tiết xem tại phụ lục)
+                            </div>
+                            <Button type="dashed" size="small" icon={<EyeOutlined />} onClick={() => showDetailModal('Nội dung chi tiết', text)}>
+                                Xem chi tiết
+                            </Button>
                         </div>
-                        <Button 
-                            type="primary" 
-                            size="small" 
-                            ghost 
-                            icon={<EyeOutlined />}
-                            onClick={() => showDetailModal('Nội dung chi tiết', text)}
-                        >
-                            Xem chi tiết
-                        </Button>
-                    </div>
-                ) : (
-                    <div dangerouslySetInnerHTML={{ __html: text }} />
-                )}
-            </div>
-        ) 
+                    ) : isLongText ? (
+                        // TRƯỜNG HỢP 2: KHÔNG PHẢI PHỤ LỤC NHƯNG DÀI QUÁ -> Cắt bớt
+                        <div>
+                            <div style={{marginBottom: 5}}>
+                                {plainText.slice(0, 150)}...
+                            </div>
+                            <a onClick={() => showDetailModal('Nội dung chi tiết', text)} style={{fontSize: '12px'}}>
+                                Xem thêm
+                            </a>
+                        </div>
+                    ) : (
+                        // TRƯỜNG HỢP 3: NGẮN GỌN -> Hiện bình thường
+                        <div dangerouslySetInnerHTML={{ __html: text }} />
+                    )}
+                </div>
+            );
+        } 
     },
-    // 👇👇 CẬP NHẬT CỘT THÀNH PHẦN 👇👇
+    // 👇👇 CẬP NHẬT CỘT THÀNH PHẦN: RÚT GỌN TƯƠNG TỰ 👇👇
     { 
         title: 'Thành Phần', 
         dataIndex: 'thanhPhan', 
         key: 'thanhPhan', 
         className: 'column-header-custom', 
-        width: 300,
+        width: 250,
         render: (text, record) => {
-            // Nếu thuộc phụ lục thì rút gọn thành phần
-            if (record.thuocPhuLuc === 1) {
+            const isPhuLuc = record.thuocPhuLuc === 1 || record.thuocPhuLuc === true;
+            
+            // Lọc text thuần để check độ dài
+            const tmp = document.createElement("DIV");
+            tmp.innerHTML = text;
+            const plainText = tmp.textContent || tmp.innerText || "";
+            
+            if (isPhuLuc) {
                 return (
-                    <Button 
-                        size="small" 
-                        icon={<EyeOutlined />}
-                        onClick={() => showDetailModal('Thành phần tham dự', text)}
-                    >
+                    <Button size="small" icon={<EyeOutlined />} onClick={() => showDetailModal('Thành phần tham dự', text)}>
                         Xem danh sách
                     </Button>
                 );
             }
+            
+            // Nếu danh sách quá dài (trên 100 ký tự) cũng rút gọn luôn
+            if (plainText.length > 100) {
+                 return (
+                    <div>
+                        {plainText.slice(0, 100)}... <br/>
+                        <a onClick={() => showDetailModal('Thành phần tham dự', text)}>Xem hết</a>
+                    </div>
+                );
+            }
+
             return <div dangerouslySetInnerHTML={{ __html: text }} />;
         }
     },
@@ -286,20 +321,40 @@ const ScheduleDashboard = () => {
             return null;
         }
     },
-    // 👇 GIỮ NGUYÊN CỘT HÀNH ĐỘNG NHƯ CŨ (CHỈ CÓ NÚT OUTLOOK)
     { 
         title: 'Hành Động', 
         key: 'hanhDong', 
-        width: 180,
+        width: 120, 
+        align: 'center',
         className: 'column-header-custom',
-        render: () => (
-            <Button 
-                size="small" 
-                style={{ backgroundColor: '#6c5ce7', color: '#fff', borderColor: '#6c5ce7', borderRadius: '4px', fontWeight: 500 }}
-            >
-                Thêm vào MS Outlook
-            </Button>
-        ) 
+        render: (_, record) => {
+            const isOwner = currentUser?.email === record.chuTriEmail;
+            const isAdmin = currentUser?.role === 'admin' || currentUser?.role === 'manager';
+            const canDelete = isAdmin || isOwner;
+
+            return (
+                <div style={{display: 'flex', flexDirection: 'column', gap: '5px', alignItems: 'center'}}>
+                    <Tooltip title="Thêm vào Outlook">
+                        <Button 
+                            size="small" 
+                            style={{ backgroundColor: '#6c5ce7', color: '#fff', borderColor: '#6c5ce7', borderRadius: '4px', fontWeight: 500, width: '100%' }}
+                            icon={<CalendarOutlined />}
+                        />
+                    </Tooltip>
+
+                    {canDelete && (
+                        <Popconfirm 
+                            title="Xóa lịch này?" 
+                            onConfirm={() => handleDeleteSchedule(record.id)}
+                            okText="Xóa"
+                            cancelText="Hủy"
+                        >
+                            <Button size="small" danger icon={<DeleteOutlined />} style={{width: '100%'}}>Xóa</Button>
+                        </Popconfirm>
+                    )}
+                </div>
+            ) 
+        }
     },
   ];
 
