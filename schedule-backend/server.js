@@ -64,7 +64,7 @@ const transporter = nodemailer.createTransport({
 });
 
 // Email NHẬN (Admin sẽ nhận thông báo tại đây)
-const ADMIN_EMAIL = 'ngothanhtrung0220@gmail.com'
+const ADMIN_EMAIL = process.env.ADMIN_EMAIL || 'ngothanhtrung0220@gmail.com';
 
 // ✅ THÊM: Middleware logging
 app.use((req, res, next) => {
@@ -457,47 +457,32 @@ app.post('/api/schedules', authMiddleware, (req, res) => {
         donVi, nguoiTao
     ];
 
-    db.query(sql, values, (err, result) => {
-        if (err) {
-            console.error('Lỗi insert:', err);
-            // Nếu lỗi do chưa có cột nguoiTao thì báo user biết
-            if (err.code === 'ER_BAD_FIELD_ERROR') {
-                 return res.status(500).json({ error: 'Lỗi DB: Thiếu cột nguoiTao. Hãy chạy lệnh ALTER TABLE.' });
-            }
-            return res.status(500).json({ error: 'Lỗi server.' });
-        }
+  // ... (Đoạn code insert thành công ở trên) ...
 
-        // ✅ GỬI MAIL CHO ADMIN SAU KHI LƯU THÀNH CÔNG
-        const mailOptions = {
-            from: '"Hệ thống Lịch Tuần" <106220239@sv1.dut.udn.vn>', // Email gửi
-            to: ADMIN_EMAIL, // Email nhận
-            subject: `🔔 LỊCH MỚI CHỜ DUYỆT: ${chuTriTen}`,
-            html: `
-                <div style="font-family: Arial, sans-serif; padding: 20px; border: 1px solid #ddd;">
-                    <h3 style="color: #1890ff;">📅 Có lịch mới vừa đăng ký!</h3>
-                    <p><b>Người đăng ký:</b> ${chuTriTen} (${chuTriEmail})</p>
-                    <p><b>Thời gian:</b> ${ngayFormatted} | ${batDauFormatted} - ${ketThucFormatted}</p>
-                    <p><b>Địa điểm:</b> ${diaDiem}</p>
-                    <div style="background: #f9f9f9; padding: 10px; border-left: 4px solid #faad14;">
-                        <b>Nội dung:</b> ${noiDung}
-                    </div>
-                    <br/>
-                    <a href="https://thankful-sea-0dc589b00.3.azurestaticapps.net/quan-ly" 
-                       style="background: #52c41a; color: #fff; padding: 10px 20px; text-decoration: none; border-radius: 5px;">
-                       Bấm vào đây để Duyệt ngay
-                    </a>
-                </div>
-            `
-        };
+        // ✅ LOGIC GỬI MAIL MỚI: LẤY EMAIL TỪ DATABASE
+        db.query("SELECT setting_value FROM system_settings WHERE setting_key = 'admin_email'", (err, settings) => {
+            // Nếu trong DB có email thì dùng, không thì dùng mặc định
+            const targetEmail = (settings && settings.length > 0) ? settings[0].setting_value : 'email_mac_dinh@gmail.com';
 
-        transporter.sendMail(mailOptions, (error, info) => {
-            if (error) console.log("❌ Lỗi gửi mail:", error);
-            else console.log("✅ Đã gửi mail thông báo:", info.response);
+            const mailOptions = {
+                from: '"Hệ thống Lịch Tuần" <106220239@sv1.dut.udn.vn>',
+                to: targetEmail, // 👈 Gửi đến email lấy từ DB
+                subject: `🔔 LỊCH MỚI: ${chuTriTen}`,
+                html: `
+                    <h3>📅 Có lịch mới!</h3>
+                    <p><b>Người đăng ký:</b> ${chuTriTen}</p>
+                    <p><b>Nội dung:</b> ${noiDung}</p>
+                    <a href="https://thankful-sea-0dc589b00.3.azurestaticapps.net/quan-ly">Duyệt ngay</a>
+                `
+            };
+
+            transporter.sendMail(mailOptions, (error, info) => {
+                if (error) console.log("❌ Lỗi gửi mail:", error);
+                else console.log(`✅ Đã gửi mail tới ${targetEmail}`);
+            });
         });
 
-        res.status(201).json({ message: 'Đăng ký thành công! Đã gửi thông báo cho Admin.' });
-    });
-});
+        res.status(201).json({ message: 'Đăng ký thành công!' });
 // Duyệt Lịch
 app.patch('/api/schedules/:id/approve', authMiddleware, adminMiddleware, (req, res) => {
     db.query("UPDATE schedules SET trangThai = 'da_duyet' WHERE id = ?", [req.params.id], (err, result) => {
@@ -730,8 +715,35 @@ app.use((err, req, res, next) => {
     res.status(err.status || 500).json(errorResponse);
 });
 
+// --- API QUẢN LÝ CẤU HÌNH HỆ THỐNG (EMAIL ADMIN) ---
+
+// 1. Lấy Email Admin hiện tại
+app.get('/api/settings/admin-email', authMiddleware, (req, res) => {
+    db.query("SELECT setting_value FROM system_settings WHERE setting_key = 'admin_email'", (err, results) => {
+        if (err) return res.status(500).json({ message: 'Lỗi server.' });
+        // Nếu chưa có trong DB thì trả về rỗng hoặc mặc định
+        const email = results.length > 0 ? results[0].setting_value : '';
+        res.json({ email });
+    });
+});
+
+// 2. Cập nhật Email Admin mới
+app.put('/api/settings/admin-email', authMiddleware, adminMiddleware, (req, res) => {
+    const { email } = req.body;
+    if (!email) return res.status(400).json({ message: 'Email không được để trống.' });
+
+    // Dùng ON DUPLICATE KEY UPDATE để nếu chưa có thì thêm, có rồi thì sửa
+    const sql = "INSERT INTO system_settings (setting_key, setting_value) VALUES ('admin_email', ?) ON DUPLICATE KEY UPDATE setting_value = ?";
+    
+    db.query(sql, [email, email], (err) => {
+        if (err) return res.status(500).json({ message: 'Lỗi cập nhật.' });
+        res.json({ message: 'Đã cập nhật Email nhận thông báo thành công!' });
+    });
+});
+
 // Lấy port từ Azure (quan trọng!)
 const PORT = process.env.PORT || 8080;
+
 
 app.listen(PORT, '0.0.0.0', () => {
     console.log(`🚀 Server đang chạy trên port ${PORT}`);

@@ -1,8 +1,14 @@
 import React, { useState, useEffect } from 'react';
-// 👇 Thêm Badge, Tooltip vào import
 import { Table, message, Button, Typography, Space, Popconfirm, Select, Form, Modal, Input, Tag, Badge, Tooltip } from 'antd';
-// 👇 Thêm BellTwoTone vào import
-import { EditOutlined, DeleteOutlined, CheckOutlined, KeyOutlined, BellTwoTone } from '@ant-design/icons';
+import { 
+    EditOutlined, 
+    DeleteOutlined, 
+    CheckOutlined, 
+    KeyOutlined, 
+    BellTwoTone,
+    MailOutlined, // 👇 Thêm icon Mail
+    SettingOutlined // 👇 Thêm icon Cài đặt
+} from '@ant-design/icons';
 import axios from 'axios';
 import dayjs from 'dayjs';
 
@@ -37,6 +43,10 @@ const AdminUsersPage = ({ type }) => {
     const [editingUser, setEditingUser] = useState(null);
     const [form] = Form.useForm();
 
+    // 👇 STATE CHO TÍNH NĂNG CẤU HÌNH EMAIL (MỚI)
+    const [isEmailModalVisible, setIsEmailModalVisible] = useState(false);
+    const [adminEmail, setAdminEmail] = useState('');
+
     const currentUserId = getCurrentUserId();
     
     const pageTitle = type === 'pending' ? 'Tài khoản cần duyệt (Pending)' : 'Quản lý Tài khoản (Đang hoạt động)';
@@ -67,33 +77,28 @@ const AdminUsersPage = ({ type }) => {
         fetchUsers();
     }, [type]); 
 
-   // --- 2. HÀM MỚI: CẤP LẠI MẬT KHẨU (RESET PASSWORD) ---
-const handleResetPassword = (id) => {
-    // Gọi API PATCH
-    axios.patch(`${BASE_API_URL}/admin/users/${id}/reset-password`, {}, getConfig())
-    .then(res => {
-        // 👇 CẬP NHẬT 1: Tải lại danh sách user NGAY LẬP TỨC để nút đỏ chuyển thành vàng
-        fetchUsers(); 
-
-        // Hiện thông báo Modal thành công
-        Modal.success({
-            title: 'Xử lý thành công!',
-            content: (
-                <div>
-                    <p>{res.data.message}</p>
-                    <p style={{ color: 'red', fontWeight: 'bold' }}>Vui lòng thông báo mật khẩu này cho người dùng.</p>
-                </div>
-            ),
-            // 👇 CẬP NHẬT 2: Khi bấm OK, reload trang để cập nhật luôn số đỏ trên Menu bên trái
-            onOk: () => {
-                window.location.reload(); 
-            },
-        });
-    })
-    .catch(error => {
+   // --- 2. HÀM CẤP LẠI MẬT KHẨU ---
+   const handleResetPassword = (id) => {
+        axios.patch(`${BASE_API_URL}/admin/users/${id}/reset-password`, {}, getConfig())
+        .then(res => {
+            fetchUsers(); 
+            Modal.success({
+                title: 'Xử lý thành công!',
+                content: (
+                    <div>
+                        <p>{res.data.message}</p>
+                        <p style={{ color: 'red', fontWeight: 'bold' }}>Vui lòng thông báo mật khẩu này cho người dùng.</p>
+                    </div>
+                ),
+                onOk: () => {
+                    window.location.reload(); 
+                },
+            });
+        })
+        .catch(error => {
             message.error(error.response?.data?.message || 'Lỗi cấp lại mật khẩu.');
-    });
-};
+        });
+   };
 
     // --- 3. CÁC HÀM KHÁC (DUYỆT, SỬA, XÓA) ---
     const handleApprove = (id) => {
@@ -142,19 +147,46 @@ const handleResetPassword = (id) => {
             .finally(() => setLoading(false));
     };
 
-    // --- 4. ĐỊNH NGHĨA CÁC CỘT (LOGIC MỚI Ở ĐÂY) ---
+    // --- 4. CÁC HÀM QUẢN LÝ EMAIL ADMIN (MỚI) ---
+    const openEmailConfig = () => {
+        axios.get(`${BASE_API_URL}/settings/admin-email`, getConfig())
+            .then(res => {
+                setAdminEmail(res.data.email);
+                setIsEmailModalVisible(true);
+            })
+            .catch(() => {
+                // Nếu lỗi (do chưa có API hoặc chưa có dữ liệu), cứ mở modal lên để nhập mới
+                setAdminEmail('');
+                setIsEmailModalVisible(true);
+            });
+    };
+
+    const handleSaveEmail = () => {
+        if (!adminEmail.trim()) {
+            message.warning("Vui lòng nhập email hợp lệ");
+            return;
+        }
+        axios.put(`${BASE_API_URL}/settings/admin-email`, { email: adminEmail }, getConfig())
+            .then(() => {
+                message.success('Đã cập nhật Email nhận thông báo!');
+                setIsEmailModalVisible(false);
+            })
+            .catch(() => message.error('Lỗi lưu cấu hình email.'));
+    };
+
+
+    // --- 5. ĐỊNH NGHĨA CÁC CỘT ---
     const columns = [
         { title: 'ID', dataIndex: 'id', key: 'id', width: 60, sorter: (a, b) => a.id - b.id },
         { title: 'Email', dataIndex: 'email', key: 'email', width: 240 },
         { 
-    title: 'Họ và Tên', 
-    dataIndex: 'fullName', // ✅ SỬA TỪ 'hostName' SANG 'fullName'
-    key: 'fullName', 
-    width: 200,
+            title: 'Họ và Tên', 
+            dataIndex: 'fullName', 
+            key: 'fullName', 
+            width: 200,
             render: (text, record) => (
                 <Space>
                     {text}
-                    {/* 👇 HIỆN CHUÔNG NẾU CÓ YÊU CẦU 👇 */}
                     {record.requestCount > 0 && (
                         <Tooltip title="Người dùng này đang yêu cầu cấp lại mật khẩu">
                             <Badge dot>
@@ -189,69 +221,44 @@ const handleResetPassword = (id) => {
             width: 280,
             render: (text, record) => (
                 <Space size="small">
-                    {/* NÚT DUYỆT */}
                     {record.status === 'pending' && type === 'pending' && (
-                        <Button 
-                            type="primary" icon={<CheckOutlined />} size="small"
-                            onClick={() => handleApprove(record.id)}
-                        >
+                        <Button type="primary" icon={<CheckOutlined />} size="small" onClick={() => handleApprove(record.id)}>
                             Duyệt
                         </Button>
                     )}
                     
-                    {/* 👇 NÚT CẤP LẠI MK (THÔNG MINH) 👇 */}
                     {record.status === 'active' && (
                         <Popconfirm
-                            // Đổi câu hỏi nếu có yêu cầu
-                            title={record.requestCount > 0 
-                                ? "Xử lý yêu cầu cấp lại mật khẩu?" 
-                                : "Reset mật khẩu về '123456'?"}
-                            description={record.requestCount > 0 
-                                ? "Mật khẩu sẽ về 123456 và yêu cầu sẽ được đóng lại." 
-                                : "Hành động này không thể hoàn tác."}
+                            title={record.requestCount > 0 ? "Xử lý yêu cầu cấp lại mật khẩu?" : "Reset mật khẩu về '123456'?"}
+                            description={record.requestCount > 0 ? "Mật khẩu sẽ về 123456 và yêu cầu sẽ được đóng lại." : "Hành động này không thể hoàn tác."}
                             onConfirm={() => handleResetPassword(record.id)}
-                            okText="Đồng ý"
-                            cancelText="Hủy"
+                            okText="Đồng ý" cancelText="Hủy"
                             disabled={record.id === currentUserId}
                         >
                             <Button 
-                                icon={<KeyOutlined />} 
-                                size="small" 
+                                icon={<KeyOutlined />} size="small" 
                                 disabled={record.id === currentUserId}
-                                // Nếu có yêu cầu -> Màu đỏ (danger). Không -> Màu vàng
                                 danger={record.requestCount > 0}
-                                style={record.requestCount > 0 
-                                    ? { fontWeight: 'bold' } 
-                                    : { backgroundColor: '#faad14', borderColor: '#faad14', color: '#fff' }
-                                }
+                                style={record.requestCount > 0 ? { fontWeight: 'bold' } : { backgroundColor: '#faad14', borderColor: '#faad14', color: '#fff' }}
                             >
                                 {record.requestCount > 0 ? "Xử lý YC" : "Cấp MK"}
                             </Button>
                         </Popconfirm>
                     )}
 
-                    {/* Nút Sửa */}
                     {record.status !== 'pending' && (
-                        <Button 
-                            icon={<EditOutlined />} size="small" 
-                            onClick={() => handleEdit(record)} 
-                            disabled={record.id === currentUserId}
-                        >
+                        <Button icon={<EditOutlined />} size="small" onClick={() => handleEdit(record)} disabled={record.id === currentUserId}>
                             Sửa
                         </Button>
                     )}
                     
-                    {/* Nút Xóa */}
                     <Popconfirm
                         title={record.status === 'pending' ? "Từ chối duyệt?" : "Xóa user?"}
                         onConfirm={() => handleDelete(record.id)}
                         okText="Có" cancelText="Không"
                         disabled={record.id === currentUserId}
                     >
-                        <Button 
-                            icon={<DeleteOutlined />} size="small" danger
-                            disabled={record.id === currentUserId}
-                        >
+                        <Button icon={<DeleteOutlined />} size="small" danger disabled={record.id === currentUserId}>
                             {record.status === 'pending' ? 'Từ chối' : 'Xóa'}
                         </Button>
                     </Popconfirm>
@@ -262,16 +269,20 @@ const handleResetPassword = (id) => {
 
     return (
         <div style={{ padding: '0px' }}>
-            {/* CSS Animation nhỏ cho cái chuông */}
             <style>
-                {`@keyframes pulse {
-                    0% { transform: scale(1); }
-                    50% { transform: scale(1.2); }
-                    100% { transform: scale(1); }
-                }`}
+                {`@keyframes pulse { 0% { transform: scale(1); } 50% { transform: scale(1.2); } 100% { transform: scale(1); } }`}
             </style>
 
-            <Title level={3} style={{ marginBottom: 20 }}>{pageTitle}</Title>
+            <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20}}>
+                <Title level={3} style={{margin: 0}}>{pageTitle}</Title>
+                
+                {/* 👇 NÚT CẤU HÌNH EMAIL (MỚI) */}
+                {type !== 'pending' && (
+                    <Button icon={<SettingOutlined />} onClick={openEmailConfig}>
+                        Cấu hình Email nhận tin
+                    </Button>
+                )}
+            </div>
             
             <Table
                 columns={columns}
@@ -282,7 +293,7 @@ const handleResetPassword = (id) => {
                 pagination={{ pageSize: 10 }}
             />
 
-         {/* MODAL CHỈNH SỬA (Cập nhật quyền) */}
+            {/* MODAL CHỈNH SỬA USER (GIỮ NGUYÊN) */}
             <Modal
                 title="Chỉnh sửa / Cấp quyền Người dùng"
                 open={isModalVisible}
@@ -291,33 +302,44 @@ const handleResetPassword = (id) => {
                 okText="Lưu thay đổi"
                 cancelText="Hủy"
             >
-                <Form 
-                    form={form} 
-                    layout="vertical" 
-                    onFinish={handleSave}
-                    initialValues={{ role: 'user' }} // Giá trị mặc định
-                >
+                <Form form={form} layout="vertical" onFinish={handleSave} initialValues={{ role: 'user' }}>
                     <Form.Item label="Email" name="email">
                         <Input disabled style={{color: '#333'}} />
                     </Form.Item>
-                    
                     <Form.Item label="Họ và Tên" name="fullName" rules={[{ required: true, message: 'Vui lòng nhập tên' }]}>
                         <Input />
                     </Form.Item>
-                    
-                    {/* 👇 QUAN TRỌNG: DROPDOWN CHỌN QUYỀN */}
                     <Form.Item 
-                        label="Vai trò (Phân quyền)" 
-                        name="role" 
+                        label="Vai trò (Phân quyền)" name="role" 
                         rules={[{ required: true, message: 'Vui lòng chọn vai trò' }]}
                         extra="Admin: Toàn quyền | Manager: Quản lý | User: Chỉ xem/đăng ký"
                     >
                         <Select placeholder="Chọn vai trò">
-                            <Option value="user">User </Option>
-                            <Option value="admin">Admin </Option>
+                            <Option value="user">User</Option>
+                            <Option value="admin">Admin</Option>
                         </Select>
                     </Form.Item>
                 </Form>
+            </Modal>
+
+            {/* 👇 MODAL CẤU HÌNH EMAIL (MỚI) 👇 */}
+            <Modal
+                title="Cấu hình Email Nhận Thông Báo"
+                open={isEmailModalVisible}
+                onOk={handleSaveEmail}
+                onCancel={() => setIsEmailModalVisible(false)}
+                okText="Lưu thay đổi"
+            >
+                <p>Khi có người dùng đăng ký lịch mới, hệ thống sẽ gửi email thông báo về địa chỉ này:</p>
+                <Input 
+                    prefix={<MailOutlined />} 
+                    value={adminEmail} 
+                    onChange={(e) => setAdminEmail(e.target.value)} 
+                    placeholder="Nhập email của Admin..."
+                />
+                <Text type="secondary" style={{fontSize: '12px', marginTop: '8px', display: 'block'}}>
+                    Lưu ý: Sau khi lưu, hệ thống sẽ áp dụng ngay lập tức.
+                </Text>
             </Modal>
         </div>
     );
