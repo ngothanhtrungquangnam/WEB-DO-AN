@@ -4,7 +4,7 @@ const mysql = require('mysql2');
 const dayjs = require('dayjs');
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
-
+const nodemailer = require('nodemailer');
 // Import Middleware
 const authMiddleware = require('./middleware/auth');
 const adminMiddleware = require('./middleware/admin');
@@ -55,6 +55,16 @@ db.getConnection((err, connection) => {
         connection.release(); // Trả kết nối về hồ chứa
     }
 });
+const transporter = nodemailer.createTransport({
+    service: 'gmail',
+    auth: {
+        user: 'ngo178384@gmail.com', // Email GỬI (Gmail của bạn)
+        pass: 'xtvn bmnz rldv eiuj'       // Mật khẩu ứng dụng 16 ký tự
+    }
+});
+
+// Email NHẬN (Admin sẽ nhận thông báo tại đây)
+const ADMIN_EMAIL = 'ngothanhtrung0220@gmail.com'
 
 // ✅ THÊM: Middleware logging
 app.use((req, res, next) => {
@@ -421,39 +431,73 @@ if (currentUserRole !== 'admin' && currentUserRole !== 'manager' && !isMyCreatio
     });
 });
 
-// Đăng ký Lịch
+// Đăng ký Lịch (CÓ GỬI MAIL THÔNG BÁO)
 app.post('/api/schedules', authMiddleware, (req, res) => {
-    // 👇 THÊM isBoSung VÀO ĐÂY
- const { ngay, thoiGian, thuocPhuLuc, isBoSung, noiDung, thanhPhan, guiMail, diaDiem, chuTriTen, chuTriEmail, donVi } = req.body;
+    const { ngay, thoiGian, thuocPhuLuc, isBoSung, noiDung, thanhPhan, guiMail, diaDiem, chuTriTen, chuTriEmail, donVi } = req.body;
     
     const ngayFormatted = dayjs(ngay).format('YYYY-MM-DD');
-    const batDauFormatted = thoiGian ? dayjs(thoiGian[0]).format('HH:mm:ss') : '07:00:00';
-    const ketThucFormatted = thoiGian ? dayjs(thoiGian[1]).format('HH:mm:ss') : '11:00:00';
+    // Xử lý giờ: Nếu là mảng thì lấy phần tử đầu/cuối, nếu không thì giữ nguyên hoặc mặc định
+    const batDauFormatted = Array.isArray(thoiGian) ? dayjs(thoiGian[0]).format('HH:mm:ss') : '07:00:00';
+    const ketThucFormatted = Array.isArray(thoiGian) ? dayjs(thoiGian[1]).format('HH:mm:ss') : '11:00:00';
+    
+    // Lưu cả người tạo (email người đang đăng nhập) để sau này họ tự xóa được bài của mình
+    const nguoiTao = req.user.email; 
 
-    // 👇 CẬP NHẬT CÂU SQL: THÊM CỘT isBoSung
-   const sql = `
+    // Câu lệnh SQL (Thêm cột nguoiTao nếu bạn đã update DB, nếu chưa thì bỏ nguoiTao đi)
+    const sql = `
         INSERT INTO schedules 
-        (ngay, batDau, ketThuc, thuocPhuLuc, isBoSung, noiDung, thanhPhan, guiMail, diaDiem, chuTriTen, chuTriEmail, donVi, trangThai) 
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'cho_duyet')
+        (ngay, batDau, ketThuc, thuocPhuLuc, isBoSung, noiDung, thanhPhan, guiMail, diaDiem, chuTriTen, chuTriEmail, donVi, trangThai, nguoiTao) 
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'cho_duyet', ?)
     `;
     
-    // 👇 THÊM BIẾN isBoSung VÀO MẢNG VALUES
     const values = [
         ngayFormatted, batDauFormatted, ketThucFormatted, 
-        thuocPhuLuc, isBoSung, // <-- Nhớ thêm vào đây
+        thuocPhuLuc, isBoSung, 
         noiDung, thanhPhan, guiMail, diaDiem, chuTriTen, chuTriEmail,
-        donVi
+        donVi, nguoiTao
     ];
 
     db.query(sql, values, (err, result) => {
         if (err) {
-            console.error('Lỗi insert:', err); // Log lỗi để dễ debug
+            console.error('Lỗi insert:', err);
+            // Nếu lỗi do chưa có cột nguoiTao thì báo user biết
+            if (err.code === 'ER_BAD_FIELD_ERROR') {
+                 return res.status(500).json({ error: 'Lỗi DB: Thiếu cột nguoiTao. Hãy chạy lệnh ALTER TABLE.' });
+            }
             return res.status(500).json({ error: 'Lỗi server.' });
         }
-        res.status(201).json({ message: 'Đăng ký thành công! Lịch đang chờ duyệt.' });
+
+        // ✅ GỬI MAIL CHO ADMIN SAU KHI LƯU THÀNH CÔNG
+        const mailOptions = {
+            from: '"Hệ thống Lịch Tuần" <106220239@sv1.dut.udn.vn>', // Email gửi
+            to: ADMIN_EMAIL, // Email nhận
+            subject: `🔔 LỊCH MỚI CHỜ DUYỆT: ${chuTriTen}`,
+            html: `
+                <div style="font-family: Arial, sans-serif; padding: 20px; border: 1px solid #ddd;">
+                    <h3 style="color: #1890ff;">📅 Có lịch mới vừa đăng ký!</h3>
+                    <p><b>Người đăng ký:</b> ${chuTriTen} (${chuTriEmail})</p>
+                    <p><b>Thời gian:</b> ${ngayFormatted} | ${batDauFormatted} - ${ketThucFormatted}</p>
+                    <p><b>Địa điểm:</b> ${diaDiem}</p>
+                    <div style="background: #f9f9f9; padding: 10px; border-left: 4px solid #faad14;">
+                        <b>Nội dung:</b> ${noiDung}
+                    </div>
+                    <br/>
+                    <a href="https://thankful-sea-0dc589b00.3.azurestaticapps.net/quan-ly" 
+                       style="background: #52c41a; color: #fff; padding: 10px 20px; text-decoration: none; border-radius: 5px;">
+                       Bấm vào đây để Duyệt ngay
+                    </a>
+                </div>
+            `
+        };
+
+        transporter.sendMail(mailOptions, (error, info) => {
+            if (error) console.log("❌ Lỗi gửi mail:", error);
+            else console.log("✅ Đã gửi mail thông báo:", info.response);
+        });
+
+        res.status(201).json({ message: 'Đăng ký thành công! Đã gửi thông báo cho Admin.' });
     });
 });
-
 // Duyệt Lịch
 app.patch('/api/schedules/:id/approve', authMiddleware, adminMiddleware, (req, res) => {
     db.query("UPDATE schedules SET trangThai = 'da_duyet' WHERE id = ?", [req.params.id], (err, result) => {
