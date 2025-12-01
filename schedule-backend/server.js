@@ -676,6 +676,51 @@ app.delete('/api/rooms/:id', authMiddleware, adminMiddleware, (req, res) => {
         res.json({ message: 'Đã xóa phòng.' });
     });
 });
+// =============================================================
+// 👇 API CẤU HÌNH HỆ THỐNG (MỚI THÊM) 👇
+// =============================================================
+
+// 1. API Lấy Email Admin hiện tại
+app.get('/api/settings/admin-email', authMiddleware, (req, res) => {
+    // Tạo bảng nếu chưa có (để tránh lỗi)
+    const createTableSql = "CREATE TABLE IF NOT EXISTS system_settings (setting_key VARCHAR(50) PRIMARY KEY, setting_value VARCHAR(255))";
+    db.query(createTableSql, (err) => {
+        if (err) console.error("Lỗi tạo bảng settings:", err);
+
+        // Lấy dữ liệu
+        db.query("SELECT setting_value FROM system_settings WHERE setting_key = 'admin_email'", (err, results) => {
+            if (err) {
+                // Nếu lỗi, trả về biến môi trường mặc định
+                return res.json({ email: process.env.ADMIN_EMAIL || '' });
+            }
+            const email = results.length > 0 ? results[0].setting_value : (process.env.ADMIN_EMAIL || '');
+            res.json({ email });
+        });
+    });
+});
+
+// 2. API Cập nhật Email Admin mới
+app.put('/api/settings/admin-email', authMiddleware, adminMiddleware, (req, res) => {
+    const { email } = req.body;
+    if (!email) return res.status(400).json({ message: 'Email không được để trống.' });
+
+    // Đảm bảo bảng tồn tại
+    const createTableSql = "CREATE TABLE IF NOT EXISTS system_settings (setting_key VARCHAR(50) PRIMARY KEY, setting_value VARCHAR(255))";
+    db.query(createTableSql, (err) => {
+        if (err) console.error("Lỗi tạo bảng settings:", err);
+
+        // Lưu hoặc Cập nhật (Upsert)
+        const sql = "INSERT INTO system_settings (setting_key, setting_value) VALUES ('admin_email', ?) ON DUPLICATE KEY UPDATE setting_value = ?";
+        
+        db.query(sql, [email, email], (err) => {
+            if (err) {
+                console.error(err);
+                return res.status(500).json({ message: 'Lỗi cập nhật Database.' });
+            }
+            res.json({ message: 'Đã cập nhật Email nhận thông báo thành công!' });
+        });
+    });
+});
 
 // ✅ THÊM: 404 handler
 app.use((req, res) => {
@@ -730,51 +775,6 @@ app.use((err, req, res, next) => {
     res.status(err.status || 500).json(errorResponse);
 });
 
-// =============================================================
-// 👇 API CẤU HÌNH HỆ THỐNG (MỚI THÊM) 👇
-// =============================================================
-
-// 1. API Lấy Email Admin hiện tại
-app.get('/api/settings/admin-email', authMiddleware, (req, res) => {
-    // Tạo bảng nếu chưa có (để tránh lỗi)
-    const createTableSql = "CREATE TABLE IF NOT EXISTS system_settings (setting_key VARCHAR(50) PRIMARY KEY, setting_value VARCHAR(255))";
-    db.query(createTableSql, (err) => {
-        if (err) console.error("Lỗi tạo bảng settings:", err);
-
-        // Lấy dữ liệu
-        db.query("SELECT setting_value FROM system_settings WHERE setting_key = 'admin_email'", (err, results) => {
-            if (err) {
-                // Nếu lỗi, trả về biến môi trường mặc định
-                return res.json({ email: process.env.ADMIN_EMAIL || '' });
-            }
-            const email = results.length > 0 ? results[0].setting_value : (process.env.ADMIN_EMAIL || '');
-            res.json({ email });
-        });
-    });
-});
-
-// 2. API Cập nhật Email Admin mới
-app.put('/api/settings/admin-email', authMiddleware, adminMiddleware, (req, res) => {
-    const { email } = req.body;
-    if (!email) return res.status(400).json({ message: 'Email không được để trống.' });
-
-    // Đảm bảo bảng tồn tại
-    const createTableSql = "CREATE TABLE IF NOT EXISTS system_settings (setting_key VARCHAR(50) PRIMARY KEY, setting_value VARCHAR(255))";
-    db.query(createTableSql, (err) => {
-        if (err) console.error("Lỗi tạo bảng settings:", err);
-
-        // Lưu hoặc Cập nhật (Upsert)
-        const sql = "INSERT INTO system_settings (setting_key, setting_value) VALUES ('admin_email', ?) ON DUPLICATE KEY UPDATE setting_value = ?";
-        
-        db.query(sql, [email, email], (err) => {
-            if (err) {
-                console.error(err);
-                return res.status(500).json({ message: 'Lỗi cập nhật Database.' });
-            }
-            res.json({ message: 'Đã cập nhật Email nhận thông báo thành công!' });
-        });
-    });
-});
 
 // =============================================================
 // Lấy port từ Azure (quan trọng!)
