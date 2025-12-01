@@ -339,6 +339,24 @@ app.delete('/api/admin/users/:id', authMiddleware, adminMiddleware, (req, res) =
         res.json({ message: 'Đã xóa/từ chối người dùng thành công.' });
     });
 });
+// API Cập nhật thông tin User (Sửa tên & Quyền)
+app.put('/api/admin/users/:id', authMiddleware, adminMiddleware, (req, res) => {
+    const { id } = req.params;
+    // 👇 Lấy thêm 'role' từ req.body
+    const { fullName, role } = req.body; 
+
+    if (parseInt(id) === req.user.id) {
+        return res.status(403).json({ message: 'Không thể tự sửa quyền của chính mình.' });
+    }
+
+    // 👇 Cập nhật cả hostName (tên) và role (quyền)
+    const sql = "UPDATE users SET hostName = ?, role = ? WHERE id = ?";
+    
+    db.query(sql, [fullName, role, id], (err, result) => {
+        if (err) return res.status(500).json({ message: 'Lỗi server.' });
+        res.json({ message: 'Cập nhật thông tin thành công!' });
+    });
+});
 
 // =====================================================================================
 //                                  CÁC API KHÁC

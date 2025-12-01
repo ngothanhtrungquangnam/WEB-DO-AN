@@ -282,30 +282,42 @@ const handleResetPassword = (id) => {
                 pagination={{ pageSize: 10 }}
             />
 
-            {/* MODAL CHỈNH SỬA (Giữ nguyên) */}
+         {/* MODAL CHỈNH SỬA (Cập nhật quyền) */}
             <Modal
-                title="Chỉnh sửa Người dùng"
+                title="Chỉnh sửa / Cấp quyền Người dùng"
                 open={isModalVisible}
                 onCancel={() => setIsModalVisible(false)}
                 onOk={() => form.submit()}
-                okText="Lưu"
+                okText="Lưu thay đổi"
                 cancelText="Hủy"
             >
-                <Form form={form} layout="vertical" onFinish={handleSave}>
+                <Form 
+                    form={form} 
+                    layout="vertical" 
+                    onFinish={handleSave}
+                    initialValues={{ role: 'user' }} // Giá trị mặc định
+                >
                     <Form.Item label="Email" name="email">
-                        <Input disabled />
+                        <Input disabled style={{color: '#333'}} />
                     </Form.Item>
-                    <Form.Item label="Họ và Tên" name="fullName" rules={[{ required: true }]}>
+                    
+                    <Form.Item label="Họ và Tên" name="fullName" rules={[{ required: true, message: 'Vui lòng nhập tên' }]}>
                         <Input />
                     </Form.Item>
-                    <Form.Item label="Vai trò" name="role" rules={[{ required: true }]}>
-                        <Select>
-                            <Option value="user">User</Option>
-                            <Option value="manager">Manager</Option>
-                            <Option value="admin">Admin</Option>
+                    
+                    {/* 👇 QUAN TRỌNG: DROPDOWN CHỌN QUYỀN */}
+                    <Form.Item 
+                        label="Vai trò (Phân quyền)" 
+                        name="role" 
+                        rules={[{ required: true, message: 'Vui lòng chọn vai trò' }]}
+                        extra="Admin: Toàn quyền | Manager: Quản lý | User: Chỉ xem/đăng ký"
+                    >
+                        <Select placeholder="Chọn vai trò">
+                            <Option value="user">User (Người dùng thường)</Option>
+                            <Option value="manager">Manager (Quản lý)</Option>
+                            <Option value="admin">Admin (Quản trị viên)</Option>
                         </Select>
                     </Form.Item>
-                    <Text type="secondary">Lưu ý: Không thể đổi mật khẩu tại đây.</Text>
                 </Form>
             </Modal>
         </div>
