@@ -457,32 +457,47 @@ app.post('/api/schedules', authMiddleware, (req, res) => {
         donVi, nguoiTao
     ];
 
-  // ... (Đoạn code insert thành công ở trên) ...
+    db.query(sql, values, (err, result) => {
+        if (err) {
+            console.error('Lỗi insert:', err);
+            // Nếu lỗi do chưa có cột nguoiTao thì báo user biết
+            if (err.code === 'ER_BAD_FIELD_ERROR') {
+                 return res.status(500).json({ error: 'Lỗi DB: Thiếu cột nguoiTao. Hãy chạy lệnh ALTER TABLE.' });
+            }
+            return res.status(500).json({ error: 'Lỗi server.' });
+        }
 
-        // ✅ LOGIC GỬI MAIL MỚI: LẤY EMAIL TỪ DATABASE
-        db.query("SELECT setting_value FROM system_settings WHERE setting_key = 'admin_email'", (err, settings) => {
-            // Nếu trong DB có email thì dùng, không thì dùng mặc định
-            const targetEmail = (settings && settings.length > 0) ? settings[0].setting_value : 'email_mac_dinh@gmail.com';
+        // ✅ GỬI MAIL CHO ADMIN SAU KHI LƯU THÀNH CÔNG
+        const mailOptions = {
+            from: '"Hệ thống Lịch Tuần" <106220239@sv1.dut.udn.vn>', // Email gửi
+            to: ADMIN_EMAIL, // Email nhận
+            subject: `🔔 LỊCH MỚI CHỜ DUYỆT: ${chuTriTen}`,
+            html: `
+                <div style="font-family: Arial, sans-serif; padding: 20px; border: 1px solid #ddd;">
+                    <h3 style="color: #1890ff;">📅 Có lịch mới vừa đăng ký!</h3>
+                    <p><b>Người đăng ký:</b> ${chuTriTen} (${chuTriEmail})</p>
+                    <p><b>Thời gian:</b> ${ngayFormatted} | ${batDauFormatted} - ${ketThucFormatted}</p>
+                    <p><b>Địa điểm:</b> ${diaDiem}</p>
+                    <div style="background: #f9f9f9; padding: 10px; border-left: 4px solid #faad14;">
+                        <b>Nội dung:</b> ${noiDung}
+                    </div>
+                    <br/>
+                    <a href="https://thankful-sea-0dc589b00.3.azurestaticapps.net/quan-ly" 
+                       style="background: #52c41a; color: #fff; padding: 10px 20px; text-decoration: none; border-radius: 5px;">
+                       Bấm vào đây để Duyệt ngay
+                    </a>
+                </div>
+            `
+        };
 
-            const mailOptions = {
-                from: '"Hệ thống Lịch Tuần" <106220239@sv1.dut.udn.vn>',
-                to: targetEmail, // 👈 Gửi đến email lấy từ DB
-                subject: `🔔 LỊCH MỚI: ${chuTriTen}`,
-                html: `
-                    <h3>📅 Có lịch mới!</h3>
-                    <p><b>Người đăng ký:</b> ${chuTriTen}</p>
-                    <p><b>Nội dung:</b> ${noiDung}</p>
-                    <a href="https://thankful-sea-0dc589b00.3.azurestaticapps.net/quan-ly">Duyệt ngay</a>
-                `
-            };
-
-            transporter.sendMail(mailOptions, (error, info) => {
-                if (error) console.log("❌ Lỗi gửi mail:", error);
-                else console.log(`✅ Đã gửi mail tới ${targetEmail}`);
-            });
+        transporter.sendMail(mailOptions, (error, info) => {
+            if (error) console.log("❌ Lỗi gửi mail:", error);
+            else console.log("✅ Đã gửi mail thông báo:", info.response);
         });
 
-        res.status(201).json({ message: 'Đăng ký thành công!' });
+        res.status(201).json({ message: 'Đăng ký thành công! Đã gửi thông báo cho Admin.' });
+    });
+});
 // Duyệt Lịch
 app.patch('/api/schedules/:id/approve', authMiddleware, adminMiddleware, (req, res) => {
     db.query("UPDATE schedules SET trangThai = 'da_duyet' WHERE id = ?", [req.params.id], (err, result) => {
