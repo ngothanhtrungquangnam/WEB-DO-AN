@@ -431,53 +431,43 @@ if (currentUserRole !== 'admin' && currentUserRole !== 'manager' && !isMyCreatio
     });
 });
 
-// Đăng ký Lịch (CÓ GỬI MAIL THÔNG BÁO)
+// Đăng ký Lịch (CÓ LOGIC ĐỌC EMAIL TỪ DATABASE)
 app.post('/api/schedules', authMiddleware, (req, res) => {
     const { ngay, thoiGian, thuocPhuLuc, isBoSung, noiDung, thanhPhan, guiMail, diaDiem, chuTriTen, chuTriEmail, donVi } = req.body;
     
-    const ngayFormatted = dayjs(ngay).format('YYYY-MM-DD');
-    // Xử lý giờ: Nếu là mảng thì lấy phần tử đầu/cuối, nếu không thì giữ nguyên hoặc mặc định
-    const batDauFormatted = Array.isArray(thoiGian) ? dayjs(thoiGian[0]).format('HH:mm:ss') : '07:00:00';
-    const ketThucFormatted = Array.isArray(thoiGian) ? dayjs(thoiGian[1]).format('HH:mm:ss') : '11:00:00';
-    
-    // Lưu cả người tạo (email người đang đăng nhập) để sau này họ tự xóa được bài của mình
-    const nguoiTao = req.user.email; 
+    // Format dữ liệu
+    const ngayF = dayjs(ngay).format('YYYY-MM-DD');
+    const bd = thoiGian ? dayjs(thoiGian[0]).format('HH:mm:ss') : '07:00:00';
+    const kt = thoiGian ? dayjs(thoiGian[1]).format('HH:mm:ss') : '11:00:00';
+    const nguoiTao = req.user.email;
 
-    // Câu lệnh SQL (Thêm cột nguoiTao nếu bạn đã update DB, nếu chưa thì bỏ nguoiTao đi)
-    const sql = `
-        INSERT INTO schedules 
-        (ngay, batDau, ketThuc, thuocPhuLuc, isBoSung, noiDung, thanhPhan, guiMail, diaDiem, chuTriTen, chuTriEmail, donVi, trangThai, nguoiTao) 
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'cho_duyet', ?)
-    `;
-    
-    const values = [
-        ngayFormatted, batDauFormatted, ketThucFormatted, 
-        thuocPhuLuc, isBoSung, 
-        noiDung, thanhPhan, guiMail, diaDiem, chuTriTen, chuTriEmail,
-        donVi, nguoiTao
-    ];
+    const sql = `INSERT INTO schedules (ngay, batDau, ketThuc, thuocPhuLuc, isBoSung, noiDung, thanhPhan, guiMail, diaDiem, chuTriTen, chuTriEmail, donVi, trangThai, nguoiTao) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'cho_duyet', ?)`;
+    const values = [ngayF, bd, kt, thuocPhuLuc, isBoSung, noiDung, thanhPhan, guiMail, diaDiem, chuTriTen, chuTriEmail, donVi, nguoiTao];
 
- // ... (Đoạn code insert lịch thành công) ...
+    db.query(sql, values, (err) => {
+        if (err) return res.status(500).json({ error: 'Lỗi DB' });
 
-        // 👇 THAY ĐỔI: KHÔNG DÙNG BIẾN CỨNG NỮA, MÀ LẤY TỪ DATABASE 👇
-        db.query("SELECT setting_value FROM system_settings WHERE setting_key = 'admin_email'", (err, settings) => {
-            // Lấy email từ DB ra
-            const targetEmail = (settings && settings.length > 0) ? settings[0].setting_value : 'ngo178384@gmail.com';
-
+        // 👇 ĐOẠN QUAN TRỌNG NHẤT: ĐỌC EMAIL TỪ DATABASE RA 👇
+        db.query("SELECT setting_value FROM system_settings WHERE setting_key = 'admin_email'", (e, rows) => {
+            // Nếu tìm thấy trong DB thì dùng, không thì dùng mặc định
+            const toEmail = (rows && rows.length > 0) ? rows[0].setting_value : 'ngo178384@gmail.com';
+            
             const mailOptions = {
                 from: '"Hệ thống Lịch Tuần" <106220239@sv1.dut.udn.vn>',
-                to: targetEmail, // <--- Gửi đến email vừa lấy từ DB
-                subject: `🔔 LỊCH MỚI CHỜ DUYỆT: ${chuTriTen}`,
-                html: `<p>Có lịch mới từ ${chuTriTen}. Nội dung: ${noiDung}</p>`
+                to: toEmail, // <--- Gửi đến email động này
+                subject: `🔔 LỊCH MỚI: ${chuTriTen}`,
+                html: `<p>Có lịch mới từ <b>${chuTriTen}</b>.</p><p>Nội dung: ${noiDung}</p>`
             };
-
-            transporter.sendMail(mailOptions, (error, info) => {
-                if (error) console.log("❌ Lỗi gửi mail:", error);
-                else console.log(`✅ Đã gửi mail tới ${targetEmail}`);
+            
+            // Gửi mail
+            transporter.sendMail(mailOptions, (err) => { 
+                if(err) console.log('Lỗi gửi mail:', err); 
+                else console.log(`Đã gửi mail tới: ${toEmail}`);
             });
         });
 
         res.status(201).json({ message: 'Đăng ký thành công!' });
+    });
 });
 // Duyệt Lịch
 app.patch('/api/schedules/:id/approve', authMiddleware, adminMiddleware, (req, res) => {
