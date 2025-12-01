@@ -732,12 +732,17 @@ app.use((err, req, res, next) => {
 
 // --- API QUẢN LÝ CẤU HÌNH HỆ THỐNG (EMAIL ADMIN) ---
 
+// --- API QUẢN LÝ CẤU HÌNH HỆ THỐNG (EMAIL ADMIN) ---
+
 // 1. Lấy Email Admin hiện tại
 app.get('/api/settings/admin-email', authMiddleware, (req, res) => {
+    // Lấy từ bảng system_settings
     db.query("SELECT setting_value FROM system_settings WHERE setting_key = 'admin_email'", (err, results) => {
-        if (err) return res.status(500).json({ message: 'Lỗi server.' });
-        // Nếu chưa có trong DB thì trả về rỗng hoặc mặc định
-        const email = results.length > 0 ? results[0].setting_value : '';
+        if (err) {
+            // Nếu lỗi (VD: chưa có bảng), trả về email mặc định từ biến môi trường
+            return res.json({ email: process.env.ADMIN_EMAIL || '' });
+        }
+        const email = results.length > 0 ? results[0].setting_value : (process.env.ADMIN_EMAIL || '');
         res.json({ email });
     });
 });
@@ -747,15 +752,19 @@ app.put('/api/settings/admin-email', authMiddleware, adminMiddleware, (req, res)
     const { email } = req.body;
     if (!email) return res.status(400).json({ message: 'Email không được để trống.' });
 
-    // Dùng ON DUPLICATE KEY UPDATE để nếu chưa có thì thêm, có rồi thì sửa
-    const sql = "INSERT INTO system_settings (setting_key, setting_value) VALUES ('admin_email', ?) ON DUPLICATE KEY UPDATE setting_value = ?";
-    
-    db.query(sql, [email, email], (err) => {
-        if (err) return res.status(500).json({ message: 'Lỗi cập nhật.' });
-        res.json({ message: 'Đã cập nhật Email nhận thông báo thành công!' });
+    // Tạo bảng nếu chưa có (Phòng hờ)
+    const createTableSql = "CREATE TABLE IF NOT EXISTS system_settings (setting_key VARCHAR(50) PRIMARY KEY, setting_value VARCHAR(255))";
+    db.query(createTableSql, (err) => {
+        if (err) console.error("Lỗi tạo bảng settings:", err);
+
+        // Lưu email vào DB
+        const sql = "INSERT INTO system_settings (setting_key, setting_value) VALUES ('admin_email', ?) ON DUPLICATE KEY UPDATE setting_value = ?";
+        db.query(sql, [email, email], (err) => {
+            if (err) return res.status(500).json({ message: 'Lỗi cập nhật.' });
+            res.json({ message: 'Đã cập nhật Email nhận thông báo thành công!' });
+        });
     });
 });
-
 // Lấy port từ Azure (quan trọng!)
 const PORT = process.env.PORT || 8080;
 
