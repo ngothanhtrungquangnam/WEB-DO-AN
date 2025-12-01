@@ -26,16 +26,14 @@ const { TextArea } = Input;
 
 const BASE_API_URL = 'https://lich-tuan-api-bcg9d2aqfgbwbbcv.eastasia-01.azurewebsites.net/api'; 
 
-// --- TỰ ĐỘNG SINH TUẦN (CHUẨN: BẮT ĐẦU TỪ 06/01/2025) ---
+// --- TỰ ĐỘNG SINH TUẦN (FIX CHUẨN: 06/01/2025) ---
 const generateWeeks = (year) => {
     const weeks = [];
-    
-    // 👇 MỐC CỐ ĐỊNH: 06/01/2025
-    let start = dayjs('2025-01-06'); 
+    let start = dayjs('2025-01-06'); // Bắt đầu từ Thứ 2
 
     for (let i = 1; i <= 52; i++) {
         const end = start.add(6, 'day');
-        const labelStr = `Tuần ${i}: ${start.format('DD/MM/YYYY')} - ${end.format('DD/MM/YYYY')}`; 
+        const labelStr = `Tuần ${i}: ${start.format('DD/MM/YYYY')} - ${end.format('DD/MM/YYYY')}`;
         
         weeks.push({
             label: labelStr,
@@ -48,7 +46,6 @@ const generateWeeks = (year) => {
     }
     return weeks;
 };
-
 const weekOptions = generateWeeks(2025);
 
 // Tự động chọn tuần hiện tại

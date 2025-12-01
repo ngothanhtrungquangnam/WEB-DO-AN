@@ -18,17 +18,15 @@ const { Title, Text } = Typography;
 
 const BASE_API_URL = 'https://lich-tuan-api-bcg9d2aqfgbwbbcv.eastasia-01.azurewebsites.net/api';
 
-// --- 1. HÀM TỰ ĐỘNG SINH DANH SÁCH TUẦN (CHUẨN: BẮT ĐẦU TỪ 06/01/2025) ---
+// --- HÀM TỰ ĐỘNG SINH DANH SÁCH TUẦN (FIX CHUẨN: 06/01/2025) ---
 const generateWeeks = (year) => {
     const weeks = [];
     
-    // 👇 MỐC CỐ ĐỊNH QUAN TRỌNG NHẤT: 06/01/2025
+    // 👇 MỐC QUAN TRỌNG: BẮT ĐẦU TỪ THỨ 2 (06/01)
     let start = dayjs('2025-01-06'); 
 
     for (let i = 1; i <= 52; i++) {
-        const end = start.add(6, 'day'); // Chủ Nhật
-        
-        // Format hiển thị: Tuần 1: 06/01/2025 - 12/01/2025
+        const end = start.add(6, 'day');
         const labelStr = `Tuần ${i}: ${start.format('DD/MM/YYYY')} - ${end.format('DD/MM/YYYY')}`; 
         
         weeks.push({
@@ -38,12 +36,10 @@ const generateWeeks = (year) => {
             endDate: end.format('YYYY-MM-DD')
         });
         
-        // Cộng thêm 1 tuần cho vòng lặp sau
         start = start.add(1, 'week');
     }
     return weeks;
 };
-
 const weekOptions = generateWeeks(2025);
 const statusOptions = [
   { label: 'Tất cả', value: 'Tất cả' },

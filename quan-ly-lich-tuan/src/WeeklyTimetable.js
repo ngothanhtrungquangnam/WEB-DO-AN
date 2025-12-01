@@ -39,26 +39,32 @@ const WeeklyTimetable = () => {
   };
 
   // --- HÀM 0: TẠO DANH SÁCH TUẦN ---
+// --- HÀM 0: TẠO DANH SÁCH TUẦN (FIX CHUẨN: BẮT ĐẦU TỪ THỨ 2 - 06/01/2025) ---
   const weekOptions = useMemo(() => {
     const options = [];
-    let schoolWeekStart = dayjs('2025-01-07'); 
-    let start = dayjs('2025-01-06');
-    for (let i = 1; i <= 52; i++) {
-        const schoolWeekEnd = schoolWeekStart.add(6, 'day');
-        const isCurrent = dayjs().isAfter(schoolWeekStart.subtract(1, 'minute')) && dayjs().isBefore(schoolWeekEnd.add(1, 'minute'));
-        const currentLabel = isCurrent ? ' (Hiện tại)' : '';
-        const label = `Tuần ${i}${currentLabel} [${schoolWeekStart.format('DD/MM/YYYY')} - ${schoolWeekEnd.format('DD/MM/YYYY')}]`;
-        
-        const isoMonday = schoolWeekStart.startOf('isoWeek'); 
+    
+    // 👇 MỐC QUAN TRỌNG NHẤT: 06/01/2025 (Thứ 2 đầu tiên của năm học)
+    let start = dayjs('2025-01-06'); 
 
+    for (let i = 1; i <= 52; i++) {
+        const end = start.add(6, 'day'); // Chủ Nhật
+        
+        // Kiểm tra tuần hiện tại
+        const isCurrent = dayjs().isAfter(start.subtract(1, 'minute')) && dayjs().isBefore(end.add(1, 'minute'));
+        const currentLabel = isCurrent ? ' (Hiện tại)' : '';
+
+        // Format label: "Tuần 1 [06/01 - 12/01]"
+        const label = `Tuần ${i}${currentLabel} [${start.format('DD/MM/YYYY')} - ${end.format('DD/MM/YYYY')}]`;
+        
         options.push({ 
             label: label, 
-            value: isoMonday.format('YYYY-MM-DD'),
-            startRaw: isoMonday, 
-            endRaw: isoMonday.add(6, 'day') 
+            value: start.format('YYYY-MM-DD'), // Giá trị này sẽ là ngày Thứ 2
+            startRaw: start, 
+            endRaw: end 
         });
         
-        schoolWeekStart = schoolWeekStart.add(1, 'week');
+        // Cộng thêm 1 tuần
+        start = start.add(1, 'week');
     }
     return options;
   }, []);
