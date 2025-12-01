@@ -135,6 +135,8 @@ const AdminUsersPage = ({ type }) => {
     };
 
     // 3. Hàm Quản lý Email (Mới)
+ // 👇 THÊM ĐOẠN NÀY
+    // --- HÀM QUẢN LÝ EMAIL ADMIN (MỚI) ---
     const openEmailConfig = () => {
         axios.get(`${BASE_API_URL}/settings/admin-email`, getConfig())
             .then(res => {
@@ -159,7 +161,7 @@ const AdminUsersPage = ({ type }) => {
             })
             .catch(() => message.error('Lỗi lưu cấu hình email.'));
     };
-
+    // 👆 HẾT
     // 4. Cấu hình Cột
     const columns = [
         { title: 'ID', dataIndex: 'id', key: 'id', width: 60, sorter: (a, b) => a.id - b.id },
@@ -290,6 +292,7 @@ const AdminUsersPage = ({ type }) => {
             </Modal>
 
             {/* Modal Cấu hình Email */}
+           {/* 👇 THÊM MODAL NÀY VÀO CUỐI CÙNG 👇 */}
             <Modal
                 title="Cấu hình Email Nhận Thông Báo"
                 open={isEmailModalVisible}
@@ -304,7 +307,11 @@ const AdminUsersPage = ({ type }) => {
                     onChange={(e) => setAdminEmail(e.target.value)} 
                     placeholder="Nhập email của Admin..."
                 />
+                <Text type="secondary" style={{fontSize: '12px', marginTop: '8px', display: 'block'}}>
+                    Lưu ý: Sau khi lưu, hệ thống sẽ áp dụng ngay lập tức.
+                </Text>
             </Modal>
+            {/* 👆 HẾT */}
         </div>
     );
 };

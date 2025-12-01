@@ -457,46 +457,27 @@ app.post('/api/schedules', authMiddleware, (req, res) => {
         donVi, nguoiTao
     ];
 
-    db.query(sql, values, (err, result) => {
-        if (err) {
-            console.error('Lỗi insert:', err);
-            // Nếu lỗi do chưa có cột nguoiTao thì báo user biết
-            if (err.code === 'ER_BAD_FIELD_ERROR') {
-                 return res.status(500).json({ error: 'Lỗi DB: Thiếu cột nguoiTao. Hãy chạy lệnh ALTER TABLE.' });
-            }
-            return res.status(500).json({ error: 'Lỗi server.' });
-        }
+ // ... (Đoạn code insert lịch thành công) ...
 
-        // ✅ GỬI MAIL CHO ADMIN SAU KHI LƯU THÀNH CÔNG
-        const mailOptions = {
-            from: '"Hệ thống Lịch Tuần" <106220239@sv1.dut.udn.vn>', // Email gửi
-            to: ADMIN_EMAIL, // Email nhận
-            subject: `🔔 LỊCH MỚI CHỜ DUYỆT: ${chuTriTen}`,
-            html: `
-                <div style="font-family: Arial, sans-serif; padding: 20px; border: 1px solid #ddd;">
-                    <h3 style="color: #1890ff;">📅 Có lịch mới vừa đăng ký!</h3>
-                    <p><b>Người đăng ký:</b> ${chuTriTen} (${chuTriEmail})</p>
-                    <p><b>Thời gian:</b> ${ngayFormatted} | ${batDauFormatted} - ${ketThucFormatted}</p>
-                    <p><b>Địa điểm:</b> ${diaDiem}</p>
-                    <div style="background: #f9f9f9; padding: 10px; border-left: 4px solid #faad14;">
-                        <b>Nội dung:</b> ${noiDung}
-                    </div>
-                    <br/>
-                    <a href="https://thankful-sea-0dc589b00.3.azurestaticapps.net/quan-ly" 
-                       style="background: #52c41a; color: #fff; padding: 10px 20px; text-decoration: none; border-radius: 5px;">
-                       Bấm vào đây để Duyệt ngay
-                    </a>
-                </div>
-            `
-        };
+        // 👇 THAY ĐỔI: KHÔNG DÙNG BIẾN CỨNG NỮA, MÀ LẤY TỪ DATABASE 👇
+        db.query("SELECT setting_value FROM system_settings WHERE setting_key = 'admin_email'", (err, settings) => {
+            // Lấy email từ DB ra
+            const targetEmail = (settings && settings.length > 0) ? settings[0].setting_value : 'ngo178384@gmail.com';
 
-        transporter.sendMail(mailOptions, (error, info) => {
-            if (error) console.log("❌ Lỗi gửi mail:", error);
-            else console.log("✅ Đã gửi mail thông báo:", info.response);
+            const mailOptions = {
+                from: '"Hệ thống Lịch Tuần" <106220239@sv1.dut.udn.vn>',
+                to: targetEmail, // <--- Gửi đến email vừa lấy từ DB
+                subject: `🔔 LỊCH MỚI CHỜ DUYỆT: ${chuTriTen}`,
+                html: `<p>Có lịch mới từ ${chuTriTen}. Nội dung: ${noiDung}</p>`
+            };
+
+            transporter.sendMail(mailOptions, (error, info) => {
+                if (error) console.log("❌ Lỗi gửi mail:", error);
+                else console.log(`✅ Đã gửi mail tới ${targetEmail}`);
+            });
         });
 
-        res.status(201).json({ message: 'Đăng ký thành công! Đã gửi thông báo cho Admin.' });
-    });
+        res.status(201).json({ message: 'Đăng ký thành công!' });
 });
 // Duyệt Lịch
 app.patch('/api/schedules/:id/approve', authMiddleware, adminMiddleware, (req, res) => {
@@ -680,48 +661,29 @@ app.delete('/api/rooms/:id', authMiddleware, adminMiddleware, (req, res) => {
 // 👇 API CẤU HÌNH HỆ THỐNG (MỚI THÊM) 👇
 // =============================================================
 
-// 1. API Lấy Email Admin hiện tại
+// 1. API Lấy Email Admin hiện tại để hiển thị lên Web
 app.get('/api/settings/admin-email', authMiddleware, (req, res) => {
-    // Tạo bảng nếu chưa có (để tránh lỗi)
-    const createTableSql = "CREATE TABLE IF NOT EXISTS system_settings (setting_key VARCHAR(50) PRIMARY KEY, setting_value VARCHAR(255))";
-    db.query(createTableSql, (err) => {
-        if (err) console.error("Lỗi tạo bảng settings:", err);
-
-        // Lấy dữ liệu
-        db.query("SELECT setting_value FROM system_settings WHERE setting_key = 'admin_email'", (err, results) => {
-            if (err) {
-                // Nếu lỗi, trả về biến môi trường mặc định
-                return res.json({ email: process.env.ADMIN_EMAIL || '' });
-            }
-            const email = results.length > 0 ? results[0].setting_value : (process.env.ADMIN_EMAIL || '');
-            res.json({ email });
-        });
+    db.query("SELECT setting_value FROM system_settings WHERE setting_key = 'admin_email'", (err, results) => {
+        if (err) return res.status(500).json({ message: 'Lỗi server' });
+        // Nếu chưa có trong DB thì trả về rỗng
+        const email = results.length > 0 ? results[0].setting_value : '';
+        res.json({ email });
     });
 });
 
-// 2. API Cập nhật Email Admin mới
+// 2. API Cập nhật Email Admin mới (Khi bấm nút Lưu trên web)
 app.put('/api/settings/admin-email', authMiddleware, adminMiddleware, (req, res) => {
     const { email } = req.body;
     if (!email) return res.status(400).json({ message: 'Email không được để trống.' });
 
-    // Đảm bảo bảng tồn tại
-    const createTableSql = "CREATE TABLE IF NOT EXISTS system_settings (setting_key VARCHAR(50) PRIMARY KEY, setting_value VARCHAR(255))";
-    db.query(createTableSql, (err) => {
-        if (err) console.error("Lỗi tạo bảng settings:", err);
-
-        // Lưu hoặc Cập nhật (Upsert)
-        const sql = "INSERT INTO system_settings (setting_key, setting_value) VALUES ('admin_email', ?) ON DUPLICATE KEY UPDATE setting_value = ?";
-        
-        db.query(sql, [email, email], (err) => {
-            if (err) {
-                console.error(err);
-                return res.status(500).json({ message: 'Lỗi cập nhật Database.' });
-            }
-            res.json({ message: 'Đã cập nhật Email nhận thông báo thành công!' });
-        });
+    // Dùng câu lệnh này: Nếu chưa có thì thêm, có rồi thì sửa (ON DUPLICATE KEY UPDATE)
+    const sql = "INSERT INTO system_settings (setting_key, setting_value) VALUES ('admin_email', ?) ON DUPLICATE KEY UPDATE setting_value = ?";
+    
+    db.query(sql, [email, email], (err) => {
+        if (err) return res.status(500).json({ message: 'Lỗi cập nhật.' });
+        res.json({ message: 'Đã cập nhật Email nhận thông báo thành công!' });
     });
 });
-
 
 // API XÓA LỊCH (Có bảo mật quyền)
 app.delete('/api/schedules/:id', authMiddleware, (req, res) => {
