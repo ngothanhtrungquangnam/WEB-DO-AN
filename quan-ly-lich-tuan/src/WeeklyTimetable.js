@@ -42,7 +42,7 @@ const WeeklyTimetable = () => {
   const weekOptions = useMemo(() => {
     const options = [];
     let schoolWeekStart = dayjs('2025-01-07'); 
-
+    let start = dayjs('2025-01-06');
     for (let i = 1; i <= 52; i++) {
         const schoolWeekEnd = schoolWeekStart.add(6, 'day');
         const isCurrent = dayjs().isAfter(schoolWeekStart.subtract(1, 'minute')) && dayjs().isBefore(schoolWeekEnd.add(1, 'minute'));

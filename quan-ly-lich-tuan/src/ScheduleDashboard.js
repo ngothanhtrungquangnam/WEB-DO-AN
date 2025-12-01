@@ -18,18 +18,28 @@ const { Title, Text } = Typography;
 
 const BASE_API_URL = 'https://lich-tuan-api-bcg9d2aqfgbwbbcv.eastasia-01.azurewebsites.net/api';
 
+// --- 1. HÀM TỰ ĐỘNG SINH DANH SÁCH TUẦN (CHUẨN: BẮT ĐẦU TỪ 06/01/2025) ---
 const generateWeeks = (year) => {
     const weeks = [];
-    let currentDate = dayjs(`${year}-01-01`).startOf('week').add(1, 'day'); 
-    if (currentDate.year() < year) currentDate = currentDate.add(1, 'week');
+    
+    // 👇 MỐC CỐ ĐỊNH QUAN TRỌNG NHẤT: 06/01/2025
+    let start = dayjs('2025-01-06'); 
 
-    for (let i = 1; i <= 53; i++) {
-        const startDate = currentDate.format('YYYY-MM-DD');
-        const endDate = currentDate.add(6, 'day').format('YYYY-MM-DD');
-        const labelStr = `Tuần ${i}: ${currentDate.format('DD-MM-YYYY')} - ${currentDate.add(6, 'day').format('DD-MM-YYYY')}`; 
-        weeks.push({ label: labelStr, value: `${year}-W${i}`, startDate, endDate });
-        currentDate = currentDate.add(1, 'week');
-        if (currentDate.year() > year && i > 50) break; 
+    for (let i = 1; i <= 52; i++) {
+        const end = start.add(6, 'day'); // Chủ Nhật
+        
+        // Format hiển thị: Tuần 1: 06/01/2025 - 12/01/2025
+        const labelStr = `Tuần ${i}: ${start.format('DD/MM/YYYY')} - ${end.format('DD/MM/YYYY')}`; 
+        
+        weeks.push({
+            label: labelStr,
+            value: `${year}-W${i}`,
+            startDate: start.format('YYYY-MM-DD'),
+            endDate: end.format('YYYY-MM-DD')
+        });
+        
+        // Cộng thêm 1 tuần cho vòng lặp sau
+        start = start.add(1, 'week');
     }
     return weeks;
 };
