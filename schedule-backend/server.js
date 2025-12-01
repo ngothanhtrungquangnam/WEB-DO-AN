@@ -722,10 +722,7 @@ app.put('/api/settings/admin-email', authMiddleware, adminMiddleware, (req, res)
     });
 });
 
-// ✅ THÊM: 404 handler
-app.use((req, res) => {
-    res.status(404).json({ message: 'API endpoint không tồn tại.' });
-});
+
 // API XÓA LỊCH (Có bảo mật quyền)
 app.delete('/api/schedules/:id', authMiddleware, (req, res) => {
     const scheduleId = req.params.id;
@@ -780,7 +777,9 @@ app.use((err, req, res, next) => {
 // Lấy port từ Azure (quan trọng!)
 const PORT = process.env.PORT || 8080;
 
-
+app.use((req, res) => {
+    res.status(404).json({ message: 'API endpoint không tồn tại.' });
+});
 app.listen(PORT, '0.0.0.0', () => {
     console.log(`🚀 Server đang chạy trên port ${PORT}`);
     console.log(`🌐 Environment: ${process.env.NODE_ENV || 'development'}`);
