@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 // 👇 Import Modal, Form, Input, Button...
 import { Form, Input, Button, message, Modal } from 'antd';
 import { useNavigate } from 'react-router-dom';
-import { UserOutlined, LockOutlined, MailOutlined, IdcardOutlined } from '@ant-design/icons';
+import { UserOutlined, LockOutlined, MailOutlined } from '@ant-design/icons'; // Bỏ IdcardOutlined
 import axios from 'axios';
 
 import './Auth.css';
@@ -23,6 +23,10 @@ const RegisterPage = () => {
         setLoading(true);
         
         const { confirmPassword, ...dataToSend } = values;
+
+        // 👇 QUAN TRỌNG: Mặc định gán hostName = fullName vì backend cũ đang cần cột này
+        // Nếu sau này backend sửa bỏ hostName thì xóa dòng này đi
+        dataToSend.hostName = dataToSend.fullName;
 
         console.log("📡 Đang gửi dữ liệu đến:", `${BASE_API_URL}/register`);
         
@@ -82,23 +86,13 @@ const RegisterPage = () => {
                         <Input prefix={<MailOutlined />} placeholder="Email (Tài khoản)" />
                     </Form.Item>
 
-                    <div style={{ display: 'flex', gap: '16px' }}> 
-                        <Form.Item
-                            name="fullName"
-                            style={{ flex: 1, marginBottom: '24px' }} 
-                            rules={[{ required: true, message: 'Vui lòng nhập Họ và Tên!' }]}
-                        >
-                            <Input prefix={<UserOutlined />} placeholder="Họ và Tên" />
-                        </Form.Item>
-
-                        <Form.Item
-                            name="hostName"
-                            style={{ flex: 1, marginBottom: '24px' }} 
-                            rules={[{ required: true, message: 'Vui lòng nhập Tên Chủ trì!' }]}
-                        >
-                            <Input prefix={<IdcardOutlined />} placeholder="Tên Chủ trì" />
-                        </Form.Item>
-                    </div>
+                    {/* 👇 ĐÃ XÓA TRƯỜNG TÊN CHỦ TRÌ, CHỈ CÒN HỌ TÊN CHIẾM HẾT DÒNG */}
+                    <Form.Item
+                        name="fullName"
+                        rules={[{ required: true, message: 'Vui lòng nhập Họ và Tên!' }]}
+                    >
+                        <Input prefix={<UserOutlined />} placeholder="Họ và Tên" />
+                    </Form.Item>
 
                     <Form.Item
                         name="password"

@@ -133,25 +133,33 @@ app.post('/api/login', async (req, res) => {
     }
 });
 
-// API ĐĂNG KÝ
+// API ĐĂNG KÝ (ĐÃ SỬA: Dùng fullName làm tên hiển thị luôn)
 app.post('/api/register', async (req, res) => {
-    const { email, password, fullName, hostName } = req.body;
+    // 1. Chỉ lấy email, password, fullName (Bỏ hostName)
+    const { email, password, fullName } = req.body;
     
-    if (!email || !password || !fullName || !hostName) return res.status(400).json({ message: 'Vui lòng điền đầy đủ thông tin.' });
+    // Kiểm tra dữ liệu đầu vào
+    if (!email || !password || !fullName) {
+        return res.status(400).json({ message: 'Vui lòng điền đầy đủ thông tin (Email, Mật khẩu, Họ tên).' });
+    }
     
     const defaultRole = 'user';
     const defaultStatus = 'pending'; 
 
     try {
+        // Kiểm tra email trùng
         const [existing] = await db.promise().query('SELECT id FROM users WHERE email = ?', [email]);
         if (existing.length > 0) return res.status(409).json({ message: 'Email đã tồn tại.' });
 
+        // Mã hóa mật khẩu
         const hashedPassword = await bcrypt.hash(password, 10);
         
-       // Chỉ INSERT vào hostName, bỏ fullName đi
-const sql = `INSERT INTO users (email, passwordHash, role, status, hostName) VALUES (?, ?, ?, ?, ?)`;
-// Truyền fullName (hoặc hostName) vào vị trí của hostName
-await db.promise().query(sql, [email, hashedPassword, defaultRole, defaultStatus, fullName || hostName]);
+        // 2. CÂU LỆNH SQL QUAN TRỌNG:
+        // Cột trong DB vẫn là 'hostName', nhưng ta nhét giá trị 'fullName' vào đó.
+        const sql = `INSERT INTO users (email, passwordHash, role, status, hostName) VALUES (?, ?, ?, ?, ?)`;
+        
+        // Biến thứ 5 là fullName (thay vì hostName như cũ)
+        await db.promise().query(sql, [email, hashedPassword, defaultRole, defaultStatus, fullName]);
         
         res.status(201).json({ message: 'Đăng ký thành công! Vui lòng chờ Admin duyệt.' });
     } catch (err) {

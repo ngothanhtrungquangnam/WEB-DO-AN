@@ -313,9 +313,8 @@ const handleResetPassword = (id) => {
                         extra="Admin: Toàn quyền | Manager: Quản lý | User: Chỉ xem/đăng ký"
                     >
                         <Select placeholder="Chọn vai trò">
-                            <Option value="user">User (Người dùng thường)</Option>
-                            <Option value="manager">Manager (Quản lý)</Option>
-                            <Option value="admin">Admin (Quản trị viên)</Option>
+                            <Option value="user">User </Option>
+                            <Option value="admin">Admin </Option>
                         </Select>
                     </Form.Item>
                 </Form>
