@@ -54,7 +54,8 @@ const ScheduleDashboard = () => {
   const [selectedWeek, setSelectedWeek] = useState(defaultWeekValue);
   const [userOptions, setUserOptions] = useState([]); 
   const [selectedHost, setSelectedHost] = useState(undefined); 
-  const [selectedStatus, setSelectedStatus] = useState('Tất cả');
+ // Mặc định chỉ hiện lịch ĐÃ DUYỆT (Màu xanh) cho sạch đẹp
+const [selectedStatus, setSelectedStatus] = useState('da_duyet');
 
   const [filterMySchedule, setFilterMySchedule] = useState(false);
   const [filterMyCreation, setFilterMyCreation] = useState(false);
@@ -89,6 +90,7 @@ const ScheduleDashboard = () => {
       setFilterUnit(false);
       setFilterCanceled(false);
       setSelectedWeek(defaultWeekValue); 
+      setSelectedStatus('da_duyet');
       message.info('Đã xóa bộ lọc.');
   };
 

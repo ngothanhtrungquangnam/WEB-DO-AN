@@ -146,15 +146,12 @@ const WeeklyTimetable = () => {
 
   // --- HÀM 4: VẼ Ô DỮ LIỆU ---
   const getCellContent = (room, dayIndex, session) => {
-    const events = schedules.filter(s => {
+   const events = schedules.filter(s => {
         const sDate = dayjs(s.ngay);
         const sTimeStart = s.batDau; 
         const hour = parseInt(sTimeStart.split(':')[0]);
         const isSameRoom = s.diaDiem === room;
         
-        // Kiểm tra Khoa (Nếu đang lọc Khoa thì phải khớp)
-        const isDeptMatch = filterDepartment === 'all' || s.donVi === filterDepartment;
-
         const columnDate = dayjs(selectedWeekStart).add(dayIndex, 'day');
         const isDateMatch = sDate.isSame(columnDate, 'day');
         
@@ -163,7 +160,10 @@ const WeeklyTimetable = () => {
         if (session === 'Chiều' && hour >= 12 && hour < 18) isSessionMatch = true;
         if (session === 'Tối' && hour >= 18) isSessionMatch = true;
 
-        return isSameRoom && isDateMatch && isSessionMatch && isDeptMatch;
+        // 👇 QUAN TRỌNG: CHỈ HIỆN LỊCH ĐÃ DUYỆT 👇
+        const isApproved = s.trangThai === 'da_duyet';
+
+        return isSameRoom && isDateMatch && isSessionMatch && isApproved; 
     });
 
     if (events.length === 0) return null;
