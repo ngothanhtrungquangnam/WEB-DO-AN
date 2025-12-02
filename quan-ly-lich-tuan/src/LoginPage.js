@@ -9,7 +9,7 @@ import dutLogo from './dut.jpg';
 import logo2 from './dtvt.jpg'; 
 
 const API_URL_LOGIN = 'https://lich-tuan-api-bcg9d2aqfgbwbbcv.eastasia-01.azurewebsites.net/api/login'; 
-
+const GOOGLE_CLIENT_ID="mhvbrg2rjeqvlltsc2herhpuovd1asv5";
 const LoginPage = () => {
     const [form] = Form.useForm();
     const [loading, setLoading] = useState(false);

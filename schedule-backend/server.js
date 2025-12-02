@@ -10,7 +10,8 @@ const authMiddleware = require('./middleware/auth');
 const adminMiddleware = require('./middleware/admin');
 
 const app = express();
-
+const { OAuth2Client } = require('google-auth-library');
+const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID || 'DÁN_CLIENT_ID_CỦA_BẠN_VÀO_ĐÂY');
 // Tìm đoạn cấu hình CORS và sửa thành:
 const corsOptions = {
     origin: '*', // Tạm thời cho phép tất cả để tránh lỗi (sau này sửa lại link web sau)
@@ -142,7 +143,50 @@ app.post('/api/login', async (req, res) => {
         res.status(500).json({ message: 'Lỗi server.' });
     }
 });
+// =============================================================
+// 🔥 API ĐĂNG NHẬP GOOGLE
+// =============================================================
+app.post('/api/auth/google', async (req, res) => {
+    const { token } = req.body;
+    try {
+        // 1. Xác minh Token với Google
+        const ticket = await client.verifyIdToken({
+            idToken: token,
+            audience: process.env.GOOGLE_CLIENT_ID || 'DÁN_CLIENT_ID_CỦA_BẠN_VÀO_ĐÂY',
+        });
+        const payload = ticket.getPayload();
+        const { email, name, picture } = payload;
 
+        // 2. Kiểm tra User trong DB
+        const [users] = await db.promise().query('SELECT * FROM users WHERE email = ?', [email]);
+
+        let user;
+        if (users.length > 0) {
+            // Đã có -> Đăng nhập
+            user = users[0];
+            if (user.status === 'rejected') return res.status(403).json({ message: 'Tài khoản bị khóa.' });
+        } else {
+            // Chưa có -> Tự động Đăng ký
+            const randomPass = Math.random().toString(36).slice(-8);
+            const hashed = await bcrypt.hash(randomPass, 10);
+            const sql = `INSERT INTO users (email, passwordHash, role, status, hostName) VALUES (?, ?, 'user', 'active', ?)`;
+            const [result] = await db.promise().query(sql, [email, hashed, name]);
+            user = { id: result.insertId, email, role: 'user', status: 'active', hostName: name };
+        }
+
+        // 3. Trả về Token
+        const jwtToken = jwt.sign(
+            { id: user.id, email: user.email, role: user.role, fullName: user.hostName }, 
+            JWT_SECRET, { expiresIn: '1d' }
+        );
+
+        res.json({ message: 'Google Login thành công!', token: jwtToken, user });
+
+    } catch (error) {
+        console.error("Google Auth Error:", error);
+        res.status(401).json({ message: 'Xác thực Google thất bại' });
+    }
+});
 // API ĐĂNG KÝ (ĐÃ SỬA: Dùng fullName làm tên hiển thị luôn)
 app.post('/api/register', async (req, res) => {
     // 1. Chỉ lấy email, password, fullName (Bỏ hostName)
