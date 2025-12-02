@@ -364,7 +364,7 @@ const ScheduleDashboard = () => {
       <div style={{ padding: '0 20px 20px 20px' }}>
          <Title level={3} style={{ textAlign: 'center', color: '#2c3e50', textTransform: 'uppercase', marginBottom: 20 }}>LỊCH CÔNG TÁC TUẦN</Title>
          <style>{`.ant-table-thead > tr > th { background-color: #f0f2f5 !important; color: #333 !important; font-weight: bold !important; text-align: center !important; border-color: #d9d9d9 !important; } .ant-table-bordered .ant-table-cell { border-color: #d9d9d9 !important; } .ant-table-container { border-color: #d9d9d9 !important; }`}</style>
-         <Table columns={columns} dataSource={schedules} loading={loading} bordered size="middle" pagination={false} style={{ border: '1px solid #d9d9d9' }} />
+         <Table columns={allColumns} dataSource={schedules} loading={loading} bordered size="middle" pagination={false} style={{ border: '1px solid #d9d9d9' }} />
       </div>
 
       {/* 4. MODAL CHI TIẾT */}
