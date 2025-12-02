@@ -1,5 +1,6 @@
 {
   "dependencies": {
-    "dayjs": "^1.11.19"
+    "dayjs": "^1.11.19",
+    "react-to-print": "^3.2.0"
   }
 }
