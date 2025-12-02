@@ -16,7 +16,9 @@ import {
   CheckCircleOutlined,
   ClockCircleOutlined,
   TableOutlined,
-  SendOutlined // 👈 Icon máy bay giấy (Mới)
+  SendOutlined,
+  HistoryOutlined,
+  SettingOutlined 
 } from '@ant-design/icons';
 import dutLogo from './dut.jpg'; 
 
@@ -39,12 +41,8 @@ const getCurrentUser = () => {
 const isAdminOrManager = (user) => user && (user.role === 'admin' || user.role === 'manager');
 
 const MainLayout = () => {
+  // Khởi tạo collapsed dựa trên localStorage để F5 vẫn giữ nguyên trạng thái
   const [collapsed, setCollapsed] = useState(localStorage.getItem('sidebarCollapsed') === 'true');
-
-// Thêm useEffect để lưu trạng thái mỗi khi thay đổi
-useEffect(() => {
-    localStorage.setItem('sidebarCollapsed', collapsed);
-}, [collapsed]);
   const [user, setUser] = useState(getCurrentUser()); 
   
   const [stats, setStats] = useState({
@@ -55,6 +53,11 @@ useEffect(() => {
 
   const location = useLocation();
   const navigate = useNavigate();
+
+    // Lưu trạng thái collapsed mỗi khi thay đổi
+    useEffect(() => {
+        localStorage.setItem('sidebarCollapsed', collapsed);
+    }, [collapsed]);
 
     useEffect(() => {
         setUser(getCurrentUser());
@@ -95,7 +98,6 @@ useEffect(() => {
         const isManager = isAdminOrManager(user);
         const totalUserNotifs = stats.pendingUsers + stats.pendingResets;
 
-        // 1. MENU CON NGƯỜI DÙNG
         const userSubItems = [
             {
                 key: '/nguoi-dung/ca-nhan',
@@ -109,10 +111,7 @@ useEffect(() => {
                     <Link to="/nguoi-dung/quan-ly" style={{ display: 'flex', alignItems: 'center' }}>
                         <span>Quản lý tài khoản</span>
                         {stats.pendingResets > 0 && (
-                            <Badge 
-                                count={stats.pendingResets} 
-                                style={{ marginLeft: '8px', backgroundColor: '#faad14' }} 
-                            />
+                            <Badge count={stats.pendingResets} style={{ marginLeft: '8px', backgroundColor: '#faad14' }} />
                         )}
                     </Link>
                 ),
@@ -125,10 +124,7 @@ useEffect(() => {
                     <Link to="/nguoi-dung/can-duyet" style={{ display: 'flex', alignItems: 'center' }}>
                         <span>Tài khoản cần duyệt</span>
                         {stats.pendingUsers > 0 && (
-                            <Badge 
-                                count={stats.pendingUsers} 
-                                style={{ marginLeft: '8px', backgroundColor: '#52c41a' }} 
-                            />
+                            <Badge count={stats.pendingUsers} style={{ marginLeft: '8px', backgroundColor: '#52c41a' }} />
                         )}
                     </Link>
                 ),
@@ -136,7 +132,6 @@ useEffect(() => {
             }
         ];
 
-        // 2. MENU CON LỊCH TUẦN
         const lichTuanItems = [
             { 
                 key: '/', 
@@ -147,31 +142,20 @@ useEffect(() => {
                 key: '/dang-ky', 
                 label: <Link to="/dang-ky">Đăng ký lịch tuần</Link>,
                 icon: <FormOutlined />,
-                hidden: isManager 
             }, 
-            
-            // 👇 [MỚI] THÊM MỤC LỊCH ĐÃ GỬI (Chỉ hiện cho User thường)
             { 
                 key: '/lich-da-gui', 
                 label: <Link to="/lich-da-gui">Lịch đã gửi</Link>,
                 icon: <SendOutlined />, 
-                hidden: isManager // Admin/Manager không cần xem cái này
+                hidden: isManager 
             }, 
-
             { 
                 key: '/quan-ly', 
                 label: (
                     <Link to="/quan-ly" style={{ display: 'flex', alignItems: 'center' }}>
                         <span>Quản lý/Duyệt lịch</span>
                         {stats.pendingSchedules > 0 && (
-                             <Badge 
-                                count={stats.pendingSchedules} 
-                                style={{ 
-                                    marginLeft: '8px', 
-                                    backgroundColor: '#ff4d4f',
-                                    boxShadow: '0 0 0 1px #d9d9d9 inset'
-                                }} 
-                            />
+                             <Badge count={stats.pendingSchedules} style={{ marginLeft: '8px', backgroundColor: '#ff4d4f', boxShadow: '0 0 0 1px #d9d9d9 inset' }} />
                         )}
                     </Link>
                 ),
@@ -219,6 +203,19 @@ useEffect(() => {
                 icon: <ApartmentOutlined />, 
                 label: <Link to="/khoa-phong">Khoa và phòng ban</Link>,
             },
+            // MỤC MỚI: CẤU HÌNH EMAIL
+            { 
+                key: '/cau-hinh-email', 
+                icon: <SettingOutlined />, 
+                label: <Link to="/cau-hinh-email">Cấu hình Email</Link>,
+                hidden: !isManager 
+            },
+            { 
+                key: '/lich-da-gui-admin', 
+                icon: <HistoryOutlined />, 
+                label: <Link to="/lich-da-gui">Lịch tôi đã gửi</Link>, 
+                hidden: !isManager 
+            },
         ];
     };
 
@@ -236,6 +233,7 @@ useEffect(() => {
 
   return (
     <Layout style={{ minHeight: '100vh' }}>
+        {/* SIDEBAR (Cố định bên trái) */}
         <Sider 
           width={250} 
           className="custom-sider"
@@ -243,7 +241,16 @@ useEffect(() => {
           collapsed={collapsed} 
           onCollapse={(value) => setCollapsed(value)}
           trigger={null} 
-          collapsedWidth={0} 
+          collapsedWidth={0} // Ẩn hoàn toàn khi đóng
+          style={{
+            overflow: 'auto',
+            height: '100vh',
+            position: 'fixed',
+            left: 0,
+            top: 0,
+            bottom: 0,
+            zIndex: 1000, // Đảm bảo luôn nằm trên cùng
+          }}
         >
             <div style={{ display: 'flex', alignItems: 'center', padding: '16px', backgroundColor: '#1890ff', height: 64 }}>
                 <Button
@@ -266,7 +273,15 @@ useEffect(() => {
           />
         </Sider>
 
-        <Layout>
+        {/* CONTENT AREA (Tự động co giãn) */}
+        <Layout 
+            style={{ 
+                // 👇👇👇 LOGIC QUAN TRỌNG ĐỂ KHẮC PHỤC LỖI F5 👇👇👇
+                marginLeft: collapsed ? 0 : 250, 
+                transition: 'margin-left 0.2s',
+                minHeight: '100vh' 
+            }}
+        >
           <Header style={{ backgroundColor: '#ffD700', display: 'flex', alignItems: 'center', color: '#000', justifyContent: 'space-between', padding: '0 24px', height: 64 }}>
                 <Button
                     type="text"
