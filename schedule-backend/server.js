@@ -143,28 +143,53 @@ app.post('/api/login', async (req, res) => {
         res.status(500).json({ message: 'Lỗi server.' });
     }
 });
-// API ĐĂNG NHẬP GOOGLE (PHÂN BIỆT RÕ 404 VÀ 403)
+// API ĐĂNG NHẬP / ĐĂNG KÝ GOOGLE (XỬ LÝ 2 TRONG 1)
 app.post('/api/auth/google', async (req, res) => {
-    const { token } = req.body;
+    const { token, type } = req.body; // 👇 Nhận thêm biến 'type'
+    
     try {
+        // 1. Xác minh Google
         const ticket = await client.verifyIdToken({
             idToken: token,
             audience: '494075819114-mhvbrg2rjeqvlltsc2herhpuovd1asv5.apps.googleusercontent.com',
         });
-        const { email } = ticket.getPayload();
+        const { email, name } = ticket.getPayload();
 
+        // 2. Kiểm tra User trong DB
         const [users] = await db.promise().query('SELECT * FROM users WHERE email = ?', [email]);
 
-        // 👇 TRƯỜNG HỢP 1: CHƯA CÓ TÀI KHOẢN -> TRẢ VỀ 404
+        // === TRƯỜNG HỢP 1: TÀI KHOẢN CHƯA TỒN TẠI ===
         if (users.length === 0) {
-            return res.status(404).json({ 
-                message: 'Tài khoản Google này chưa được đăng ký trên hệ thống.' 
-            });
+            if (type === 'login') {
+                // Nếu đang ở trang Đăng nhập -> Báo lỗi để hiện Popup
+                return res.status(404).json({ message: 'Tài khoản chưa đăng ký.' });
+            } 
+            else if (type === 'register') {
+                // Nếu đang ở trang Đăng ký -> TẠO MỚI (Pending)
+                const randomPass = Math.random().toString(36).slice(-8);
+                const hashed = await bcrypt.hash(randomPass, 10);
+
+                const sql = `INSERT INTO users (email, passwordHash, role, status, hostName) VALUES (?, ?, 'user', 'pending', ?)`;
+                await db.promise().query(sql, [email, hashed, name]);
+
+                // Gửi mail cho Admin
+                db.query("SELECT setting_value FROM system_settings WHERE setting_key = 'admin_email'", (e, rows) => {
+                    const toEmail = (rows && rows.length > 0) ? rows[0].setting_value : 'ngothanhtrung0220@gmail.com';
+                    transporter.sendMail({
+                        from: '"Lịch Tuần" <106220239@sv1.dut.udn.vn>',
+                        to: toEmail,
+                        subject: `👤 ĐĂNG KÝ GOOGLE MỚI: ${name}`,
+                        html: `<p>Người dùng <b>${name}</b> (${email}) vừa đăng ký bằng Google.</p><p>Vui lòng vào duyệt.</p>`
+                    });
+                });
+
+                return res.status(201).json({ status: 'pending', message: 'Đăng ký thành công! Chờ duyệt.' });
+            }
         }
 
+        // === TRƯỜNG HỢP 2: ĐÃ CÓ TÀI KHOẢN ===
         const user = users[0];
 
-        // 👇 TRƯỜNG HỢP 2: CÓ TÀI KHOẢN NHƯNG CHƯA DUYỆT -> TRẢ VỀ 403
         if (user.status === 'pending') {
             return res.status(403).json({ message: 'Tài khoản đang chờ Admin duyệt.' });
         }
@@ -172,17 +197,17 @@ app.post('/api/auth/google', async (req, res) => {
             return res.status(403).json({ message: 'Tài khoản đã bị từ chối.' });
         }
 
-        // 👇 TRƯỜNG HỢP 3: ĐÃ DUYỆT -> CHO VÀO
+        // Active -> Cấp Token
         const jwtToken = jwt.sign(
             { id: user.id, email: user.email, role: user.role, fullName: user.hostName, hostName: user.hostName }, 
             JWT_SECRET, { expiresIn: '1d' }
         );
 
-        res.json({ message: 'Đăng nhập thành công!', token: jwtToken, user });
+        res.json({ message: 'Thành công!', token: jwtToken, user });
 
     } catch (error) {
         console.error("Google Auth Error:", error);
-        res.status(401).json({ message: 'Xác thực Google thất bại' });
+        res.status(401).json({ message: 'Xác thực thất bại' });
     }
 });
 // API ĐĂNG KÝ (ĐÃ SỬA: Dùng fullName làm tên hiển thị luôn)

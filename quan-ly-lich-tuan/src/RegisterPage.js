@@ -37,28 +37,40 @@ const RegisterPage = () => {
             .finally(() => setLoading(false));
     };
 
-    // === ĐĂNG NHẬP GOOGLE (XỬ LÝ CHỜ DUYỆT) ===
+
     const handleGoogleSuccess = (credentialResponse) => {
         setLoading(true);
-        axios.post(`${BASE_API_URL}/auth/google`, { token: credentialResponse.credential })
-            .then(res => {
-                message.success('Đăng nhập thành công!');
+
+        // 👇 THÊM type: 'register'
+        axios.post(`${BASE_API_URL}/auth/google`, { 
+            token: credentialResponse.credential,
+            type: 'register' 
+        })
+        .then(res => {
+            // Nếu là đăng ký mới (201) HOẶC người cũ nhưng đang pending
+            if (res.status === 201 || (res.data && res.data.status === 'pending')) {
+                setPendingMessage('Tài khoản Google đã được tạo và đang chờ Admin duyệt.');
+                setIsSuccessModalVisible(true);
+            } 
+            // Nếu người cũ đã Active -> Vào luôn
+            else if (res.data.token) {
+                message.success('Tài khoản đã tồn tại. Đang đăng nhập...');
                 localStorage.setItem('userToken', res.data.token);
                 localStorage.setItem('userData', JSON.stringify(res.data.user));
                 navigate('/');
-            })
-            .catch(err => {
-                // NẾU LỖI 403 -> NGHĨA LÀ ĐANG CHỜ DUYỆT HOẶC BỊ TỪ CHỐI
-                if (err.response && err.response.status === 403) {
-                    const msg = err.response.data.message || 'Tài khoản đang chờ Admin duyệt.';
-                    setPendingMessage(msg);
-                    setIsSuccessModalVisible(true); // Hiện Modal chờ duyệt
-                } else {
-                    message.error('Lỗi: ' + (err.response?.data?.message || err.message));
-                }
-            })
-            .finally(() => setLoading(false));
+            }
+        })
+        .catch(err => {
+            // Nếu bị 403 (Pending) cũng hiện modal
+            if (err.response && err.response.status === 403) {
+                setIsSuccessModalVisible(true);
+            } else {
+                message.error('Lỗi: ' + (err.response?.data?.message || err.message));
+            }
+        })
+        .finally(() => setLoading(false));
     };
+   
 
     const handleCloseSuccessModal = () => {
         setIsSuccessModalVisible(false); 

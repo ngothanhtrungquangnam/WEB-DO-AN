@@ -55,57 +55,43 @@ const LoginPage = () => {
         });
     };
 
-    // --- 2. XỬ LÝ ĐĂNG NHẬP GOOGLE (ĐÃ NÂNG CẤP) ---
+    // ... code cũ ...
     const handleGoogleSuccess = (credentialResponse) => {
         setLoading(true);
         setLoginError(null);
 
-        axios.post(`${BASE_API_URL}/auth/google`, { token: credentialResponse.credential })
-            .then(res => {
-                message.success('Đăng nhập Google thành công!');
-                localStorage.setItem('userToken', res.data.token);
-                localStorage.setItem('userData', JSON.stringify(res.data.user));
-                navigate('/', { replace: true });
-            })
-            .catch(err => {
-                console.error("Google Login Error:", err);
-                
-                if (err.response) {
-                    const status = err.response.status;
-                    const msg = err.response.data.message;
-
-                    // 👇 TRƯỜNG HỢP 1: CHƯA CÓ TÀI KHOẢN (LỖI 404) -> HIỆN POPUP CHUYỂN TRANG
-                    if (status === 404) {
-                        Modal.confirm({
-                            title: 'Tài khoản chưa đăng ký',
-                            icon: <ExclamationCircleOutlined />,
-                            content: (
-                                <div>
-                                    <p>Email Google này chưa có trong hệ thống.</p>
-                                    <p>Bạn có muốn chuyển sang trang <b>Đăng ký</b> không?</p>
-                                </div>
-                            ),
-                            okText: 'Đăng ký ngay',
-                            cancelText: 'Hủy',
-                            onOk() {
-                                navigate('/dang-ky-tai-khoan'); // Chuyển sang trang đăng ký
-                            }
-                        });
-                    } 
-                    // 👇 TRƯỜNG HỢP 2: TÀI KHOẢN CHỜ DUYỆT (LỖI 403)
-                    else if (status === 403) {
-                        setLoginError("⚠️ " + msg); // Hiện vào khung đỏ để user biết
-                    } 
-                    // 👇 TRƯỜNG HỢP KHÁC
-                    else {
-                        setLoginError('Lỗi Google: ' + msg);
-                    }
-                } else {
-                    setLoginError('Lỗi kết nối đến Server.');
-                }
-            })
-            .finally(() => setLoading(false));
+        // 👇 THÊM type: 'login'
+        axios.post(`${BASE_API_URL}/auth/google`, { 
+            token: credentialResponse.credential,
+            type: 'login' 
+        })
+        .then(res => {
+            message.success('Đăng nhập thành công!');
+            localStorage.setItem('userToken', res.data.token);
+            localStorage.setItem('userData', JSON.stringify(res.data.user));
+            navigate('/', { replace: true });
+        })
+        .catch(err => {
+            // 👇 BẮT LỖI 404 ĐỂ HIỆN POPUP
+            if (err.response && err.response.status === 404) {
+                Modal.confirm({
+                    title: 'Tài khoản chưa đăng ký',
+                    icon: <ExclamationCircleOutlined />,
+                    content: 'Email Google này chưa có trong hệ thống. Bạn có muốn đăng ký ngay?',
+                    okText: 'Đăng ký ngay',
+                    cancelText: 'Hủy',
+                    onOk() { navigate('/dang-ky-tai-khoan'); }
+                });
+            }
+            else if (err.response && err.response.status === 403) {
+                setLoginError("⚠️ " + err.response.data.message);
+            } else {
+                setLoginError('Lỗi: ' + (err.response?.data?.message || err.message));
+            }
+        })
+        .finally(() => setLoading(false));
     };
+   
 
     const handleRegisterRedirect = () => {
         navigate('/dang-ky-tai-khoan');
