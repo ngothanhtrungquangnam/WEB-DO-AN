@@ -39,12 +39,7 @@ const getCurrentUser = () => {
 const isAdminOrManager = (user) => user && (user.role === 'admin' || user.role === 'manager');
 
 const MainLayout = () => {
-  const [collapsed, setCollapsed] = useState(localStorage.getItem('sidebarCollapsed') === 'true');
-
-// Thêm useEffect để lưu trạng thái mỗi khi thay đổi
-useEffect(() => {
-    localStorage.setItem('sidebarCollapsed', collapsed);
-}, [collapsed]);
+  const [collapsed, setCollapsed] = useState(true); 
   const [user, setUser] = useState(getCurrentUser()); 
   
   const [stats, setStats] = useState({
@@ -236,7 +231,6 @@ useEffect(() => {
 
   return (
     <Layout style={{ minHeight: '100vh' }}>
-        {/* 1. SIDER: THÊM style position: fixed ĐỂ CỐ ĐỊNH NÓ */}
         <Sider 
           width={250} 
           className="custom-sider"
@@ -245,15 +239,6 @@ useEffect(() => {
           onCollapse={(value) => setCollapsed(value)}
           trigger={null} 
           collapsedWidth={0} 
-          style={{
-            overflow: 'auto',
-            height: '100vh',
-            position: 'fixed', // 👈 Cố định sidebar
-            left: 0,
-            top: 0,
-            bottom: 0,
-            zIndex: 1000,
-          }}
         >
             <div style={{ display: 'flex', alignItems: 'center', padding: '16px', backgroundColor: '#1890ff', height: 64 }}>
                 <Button
@@ -276,15 +261,7 @@ useEffect(() => {
           />
         </Sider>
 
-        {/* 2. CONTENT LAYOUT: THÊM logic marginLeft ĐỂ CO GIÃN */}
-        <Layout 
-            style={{ 
-                // 👇 Logic quan trọng: Nếu đóng thì margin 0, nếu mở thì margin 250px
-                marginLeft: collapsed ? 0 : 250, 
-                transition: 'all 0.2s', // Hiệu ứng trượt mượt mà
-                minHeight: '100vh'
-            }}
-        >
+        <Layout>
           <Header style={{ backgroundColor: '#ffD700', display: 'flex', alignItems: 'center', color: '#000', justifyContent: 'space-between', padding: '0 24px', height: 64 }}>
                 <Button
                     type="text"
