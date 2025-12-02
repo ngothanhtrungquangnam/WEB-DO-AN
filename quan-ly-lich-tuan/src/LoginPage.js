@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Form, Input, Button, message, Modal, Alert, Divider } from 'antd'; 
 import { useNavigate, Link } from 'react-router-dom'; 
-import { LockOutlined, MailOutlined, UserOutlined, ExclamationCircleOutlined } from '@ant-design/icons'; 
+import { LockOutlined, MailOutlined, UserOutlined } from '@ant-design/icons'; 
 import { GoogleOAuthProvider, GoogleLogin } from '@react-oauth/google';
 import axios from 'axios'; 
 
@@ -18,8 +18,9 @@ const LoginPage = () => {
     const [loading, setLoading] = useState(false);
     const [isForgotModalVisible, setIsForgotModalVisible] = useState(false);
     
-    // State để hiện lỗi trong khung đỏ
+    // 👇 State hiển thị lỗi Đăng nhập (Sai pass/email)
     const [loginError, setLoginError] = useState(null);
+    // 👇 State hiển thị lỗi trong Modal Quên mật khẩu
     const [modalError, setModalError] = useState(null);
 
     const navigate = useNavigate();
@@ -27,7 +28,7 @@ const LoginPage = () => {
     // --- 1. XỬ LÝ ĐĂNG NHẬP THƯỜNG ---
     const onFinishLogin = (values) => {
         setLoading(true);
-        setLoginError(null); // Xóa lỗi cũ
+        setLoginError(null); // Reset lỗi cũ
 
         fetch(API_URL_LOGIN, {
             method: 'POST',
@@ -47,7 +48,7 @@ const LoginPage = () => {
             navigate('/', { replace: true }); 
         })
         .catch(error => {
-            // Hiện lỗi vào khung đỏ
+            // Hiển thị lỗi ra khung đỏ trên màn hình
             setLoginError(error.message);
         })
         .finally(() => {
@@ -55,11 +56,11 @@ const LoginPage = () => {
         });
     };
 
-    // --- 2. XỬ LÝ ĐĂNG NHẬP GOOGLE (ĐÃ SỬA ĐỂ HIỆN LỖI RÕ RÀNG) ---
+    // --- 2. XỬ LÝ ĐĂNG NHẬP GOOGLE ---
     const handleGoogleSuccess = (credentialResponse) => {
         setLoading(true);
-        setLoginError(null); // Xóa lỗi cũ
-        
+        setLoginError(null);
+
         axios.post(`${BASE_API_URL}/auth/google`, { token: credentialResponse.credential })
             .then(res => {
                 message.success('Đăng nhập Google thành công!');
@@ -68,36 +69,22 @@ const LoginPage = () => {
                 navigate('/', { replace: true });
             })
             .catch(err => {
-                console.error("Google Login Error:", err); // Log ra để kiểm tra
-                
-                if (err.response) {
-                    const status = err.response.status;
-                    const msg = err.response.data.message;
-
-                    // TRƯỜNG HỢP 1: CHƯA CÓ TÀI KHOẢN (404) -> Hiện Popup hỏi đăng ký
-                    if (status === 404) {
-                        Modal.confirm({
-                            title: 'Tài khoản chưa đăng ký',
-                            icon: <ExclamationCircleOutlined />,
-                            content: msg || 'Email Google này chưa có trong hệ thống.',
-                            okText: 'Đăng ký ngay',
-                            cancelText: 'Hủy',
-                            onOk() {
-                                navigate('/dang-ky-tai-khoan');
-                            }
-                        });
-                    } 
-                    // TRƯỜNG HỢP 2: CHỜ DUYỆT (403) -> HIỆN KHUNG ĐỎ (Alert)
-                    // Thay vì dùng Modal, ta dùng setLoginError để nó hiện ngay trên nút Đăng nhập
-                    else if (status === 403) {
-                        setLoginError("⚠️ " + msg); 
-                    } 
-                    // LỖI KHÁC
-                    else {
-                        setLoginError('Lỗi Google: ' + msg);
-                    }
+                // Nếu tài khoản chưa được duyệt (Lỗi 403 từ server)
+                if (err.response && err.response.status === 403) {
+                    Modal.warning({
+                        title: 'Thông báo',
+                        content: (
+                            <div>
+                                <p>{err.response.data.message}</p>
+                                <p style={{fontSize: '13px', color: '#888'}}>Vui lòng đợi Quản trị viên kích hoạt tài khoản.</p>
+                            </div>
+                        ),
+                        okText: 'Đã hiểu',
+                        centered: true
+                    });
                 } else {
-                    setLoginError('Lỗi kết nối đến Server.');
+                    // Các lỗi khác thì hiện ra khung đỏ
+                    setLoginError('Lỗi Google: ' + (err.response?.data?.message || err.message));
                 }
             })
             .finally(() => setLoading(false));
@@ -111,6 +98,7 @@ const LoginPage = () => {
     const handleSendResetRequest = (values) => {
         setLoading(true);
         setModalError(null); 
+
         fetch(`${API_URL_LOGIN.replace('/login', '/forgot-password-request')}`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -154,7 +142,7 @@ const LoginPage = () => {
                         <p className="auth-subtitle">Hệ thống Quản lý Lịch Tuần</p>
                     </div>
 
-                    {/* FORM ĐĂNG NHẬP */}
+                    {/* === PHẦN 1: FORM ĐĂNG NHẬP (ĐƯA LÊN TRÊN) === */}
                     <Form
                         name="login_form"
                         onFinish={onFinishLogin}
@@ -168,7 +156,7 @@ const LoginPage = () => {
                             rules={[{ required: true, message: 'Vui lòng nhập Email!' }]}
                             style={{marginBottom: 16}}
                         >
-                            <Input prefix={<MailOutlined className="site-form-item-icon" />} placeholder="Email" />
+                            <Input prefix={<MailOutlined className="site-form-item-icon" />} placeholder="Email (Tài khoản)" />
                         </Form.Item>
 
                         <Form.Item
@@ -185,12 +173,12 @@ const LoginPage = () => {
                             </span>
                         </div>
 
-                        {/* 👇 KHUNG HIỂN THỊ LỖI (BAO GỒM CẢ LỖI GOOGLE) 👇 */}
+                        {/* 👇 HIỂN THỊ LỖI ĐĂNG NHẬP TẠI ĐÂY 👇 */}
                         {loginError && (
                             <Alert
-                                message="Thông báo"
+                                message="Đăng nhập thất bại"
                                 description={loginError}
-                                type="error" // Màu đỏ
+                                type="error"
                                 showIcon
                                 style={{ marginBottom: 16 }}
                             />
@@ -203,6 +191,7 @@ const LoginPage = () => {
                         </Form.Item>
                     </Form>
 
+                    {/* === PHẦN 2: GOOGLE (ĐƯA XUỐNG DƯỚI CHO KHOA HỌC) === */}
                     <div style={{ position: 'relative', marginBottom: 20 }}>
                         <Divider plain style={{ color: '#8c8c8c', fontSize: '13px' }}>Hoặc đăng nhập bằng</Divider>
                     </div>
@@ -226,9 +215,9 @@ const LoginPage = () => {
                     </div>
                 </div>
 
-                {/* Modal Quên Mật Khẩu */}
+                {/* MODAL QUÊN MẬT KHẨU */}
                 <Modal
-                    title="Quên mật khẩu?"
+                    title="Gửi yêu cầu Quên mật khẩu"
                     open={isForgotModalVisible}
                     onCancel={handleCloseForgotModal}
                     footer={null} 
@@ -239,6 +228,7 @@ const LoginPage = () => {
                         <Form.Item name="email" rules={[{ required: true }]}><Input prefix={<MailOutlined />} placeholder="Email" /></Form.Item>
                         <Form.Item name="fullName" rules={[{ required: true }]}><Input prefix={<UserOutlined />} placeholder="Họ và Tên" /></Form.Item>
                         <Button type="primary" htmlType="submit" loading={loading} block>Gửi yêu cầu</Button>
+                        <div style={{ textAlign: 'center', marginTop: 10 }}><a onClick={handleCloseForgotModal} style={{color: '#888', cursor:'pointer'}}>Hủy bỏ</a></div>
                     </Form>
                 </Modal>
             </div>
