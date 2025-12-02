@@ -93,7 +93,7 @@ app.get('/health', (req, res) => {
 //                                API XÁC THỰC (AUTH)
 // =====================================================================================
 
-// API ĐĂNG NHẬP
+
 // API ĐĂNG NHẬP (SỬ DỤNG ASYNC/AWAIT CHUẨN MỰC)
 app.post('/api/login', async (req, res) => {
     const { email, password } = req.body;

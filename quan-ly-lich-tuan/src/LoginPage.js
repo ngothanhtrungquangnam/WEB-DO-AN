@@ -21,7 +21,7 @@ const LoginPage = () => {
 
     const navigate = useNavigate();
 
-    // --- XỬ LÝ ĐĂNG NHẬP THƯỜNG ---
+// --- 1. XỬ LÝ ĐĂNG NHẬP THƯỜNG ---
     const onFinishLogin = (values) => {
         setLoading(true);
         fetch(API_URL_LOGIN, {
@@ -30,8 +30,12 @@ const LoginPage = () => {
             body: JSON.stringify(values),
         })
         .then(response => {
+            // 👇 XỬ LÝ LỖI TỪ SERVER TRẢ VỀ (401, 403, 404...)
             if (!response.ok) {
-                return response.json().then(err => { throw new Error(err.message || 'Email hoặc mật khẩu không đúng.') });
+                return response.json().then(err => { 
+                    // Ném lỗi ra để catch bắt được
+                    throw new Error(err.message || 'Email hoặc mật khẩu không đúng.'); 
+                });
             }
             return response.json();
         })
@@ -42,7 +46,9 @@ const LoginPage = () => {
             navigate('/', { replace: true }); 
         })
         .catch(error => {
-            message.error(error.message);
+            // 👇 HIỂN THỊ LỖI LÊN MÀN HÌNH
+            console.error("Login Error:", error);
+            message.error(error.message); // Hiện thông báo đỏ trên cùng
         })
         .finally(() => {
             setLoading(false);
