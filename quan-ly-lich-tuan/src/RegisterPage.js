@@ -15,10 +15,11 @@ const GOOGLE_CLIENT_ID = "494075819114-mhvbrg2rjeqvlltsc2herhpuovd1asv5.apps.goo
 const RegisterPage = () => {
     const [loading, setLoading] = useState(false);
     const [isSuccessModalVisible, setIsSuccessModalVisible] = useState(false);
+    const [pendingMessage, setPendingMessage] = useState(''); // Lưu thông báo cụ thể từ server
     
     const navigate = useNavigate();
 
-    // --- 1. XỬ LÝ ĐĂNG KÝ THỦ CÔNG (GIỮ NGUYÊN) ---
+    // === ĐĂNG KÝ THỦ CÔNG ===
     const onFinish = (values) => {
         setLoading(true);
         const { confirmPassword, ...dataToSend } = values;
@@ -26,6 +27,7 @@ const RegisterPage = () => {
 
         axios.post(`${BASE_API_URL}/register`, dataToSend)
             .then(res => {
+                setPendingMessage('Tài khoản của bạn đã được tạo thành công và đang chờ Admin duyệt.');
                 setIsSuccessModalVisible(true);
             })
             .catch(error => {
@@ -35,22 +37,39 @@ const RegisterPage = () => {
             .finally(() => setLoading(false));
     };
 
-    // --- 2. XỬ LÝ GOOGLE LOGIN (ĐÃ THÊM LOGIC CHỜ DUYỆT) ---
+    // === ĐĂNG NHẬP GOOGLE ===
     const handleGoogleSuccess = (credentialResponse) => {
         setLoading(true);
         axios.post(`${BASE_API_URL}/auth/google`, { token: credentialResponse.credential })
             .then(res => {
-                message.success('Đăng nhập thành công!');
-                localStorage.setItem('userToken', res.data.token);
-                localStorage.setItem('userData', JSON.stringify(res.data.user));
-                navigate('/');
+                // Nếu server trả về token -> đăng nhập thành công
+                if (res.data.token) {
+                    message.success('Đăng nhập thành công!');
+                    localStorage.setItem('userToken', res.data.token);
+                    localStorage.setItem('userData', JSON.stringify(res.data.user));
+                    navigate('/');
+                } 
+                // Nếu server trả về trạng thái pending (ví dụ: user mới được tạo nhưng chưa active)
+                else if (res.data.status === 'pending') {
+                    setPendingMessage('Tài khoản Google của bạn đã được ghi nhận và đang chờ Admin kích hoạt.');
+                    setIsSuccessModalVisible(true);
+                }
             })
             .catch(err => {
-                // 👇 LOGIC QUAN TRỌNG: NẾU 403 (PENDING) -> HIỆN MODAL CHỜ DUYỆT
+                // ✅ XỬ LÝ LỖI 403: TÀI KHOẢN CHỜ DUYỆT
                 if (err.response && err.response.status === 403) {
+                    const serverMsg = err.response.data?.message || 
+                        'Tài khoản của bạn đã được tạo nhưng đang chờ Admin phê duyệt.';
+                    setPendingMessage(serverMsg);
                     setIsSuccessModalVisible(true);
-                } else {
-                    message.error('Lỗi: ' + (err.response?.data?.message || err.message));
+                } 
+                // ✅ XỬ LÝ LỖI 401: TÀI KHOẢN BỊ TẠM KHÓA
+                else if (err.response && err.response.status === 401) {
+                    message.error('Tài khoản của bạn đã bị tạm khóa. Vui lòng liên hệ Admin.');
+                }
+                // Lỗi khác
+                else {
+                    message.error('Lỗi đăng nhập: ' + (err.response?.data?.message || err.message));
                 }
             })
             .finally(() => setLoading(false));
@@ -58,6 +77,7 @@ const RegisterPage = () => {
 
     const handleCloseSuccessModal = () => {
         setIsSuccessModalVisible(false); 
+        setPendingMessage('');
         navigate('/login'); 
     };
 
@@ -74,7 +94,7 @@ const RegisterPage = () => {
                         <p className="auth-subtitle">Tạo tài khoản mới để sử dụng hệ thống</p>
                     </div>
 
-                    {/* === PHẦN 1: FORM NHẬP LIỆU (ĐƯA LÊN TRÊN CHO KHOA HỌC) === */}
+                    {/* === FORM ĐĂNG KÝ === */}
                     <Form
                         name="register"
                         onFinish={onFinish}
@@ -83,10 +103,16 @@ const RegisterPage = () => {
                     >
                         <Form.Item
                             name="email"
-                            rules={[{ required: true, message: 'Vui lòng nhập Email!' }, { type: 'email', message: 'Email không hợp lệ!' }]}
+                            rules={[
+                                { required: true, message: 'Vui lòng nhập Email!' }, 
+                                { type: 'email', message: 'Email không hợp lệ!' }
+                            ]}
                             style={{ marginBottom: 12 }}
                         >
-                            <Input prefix={<MailOutlined className="site-form-item-icon" />} placeholder="Email (Tài khoản)" />
+                            <Input 
+                                prefix={<MailOutlined className="site-form-item-icon" />} 
+                                placeholder="Email (Tài khoản)" 
+                            />
                         </Form.Item>
 
                         <Form.Item
@@ -94,15 +120,24 @@ const RegisterPage = () => {
                             rules={[{ required: true, message: 'Vui lòng nhập Họ và Tên!' }]}
                             style={{ marginBottom: 12 }}
                         >
-                            <Input prefix={<UserOutlined className="site-form-item-icon" />} placeholder="Họ và Tên" />
+                            <Input 
+                                prefix={<UserOutlined className="site-form-item-icon" />} 
+                                placeholder="Họ và Tên" 
+                            />
                         </Form.Item>
 
                         <Form.Item
                             name="password"
-                            rules={[{ required: true, message: 'Vui lòng nhập Mật khẩu!' }, { min: 6, message: 'Tối thiểu 6 ký tự' }]}
+                            rules={[
+                                { required: true, message: 'Vui lòng nhập Mật khẩu!' }, 
+                                { min: 6, message: 'Tối thiểu 6 ký tự' }
+                            ]}
                             style={{ marginBottom: 12 }}
                         >
-                            <Input.Password prefix={<LockOutlined className="site-form-item-icon" />} placeholder="Mật khẩu" />
+                            <Input.Password 
+                                prefix={<LockOutlined className="site-form-item-icon" />} 
+                                placeholder="Mật khẩu" 
+                            />
                         </Form.Item>
                         
                         <Form.Item
@@ -113,26 +148,44 @@ const RegisterPage = () => {
                                 { required: true, message: 'Vui lòng xác nhận Mật khẩu!' },
                                 ({ getFieldValue }) => ({
                                     validator(_, value) {
-                                        if (!value || getFieldValue('password') === value) return Promise.resolve();
+                                        if (!value || getFieldValue('password') === value) {
+                                            return Promise.resolve();
+                                        }
                                         return Promise.reject(new Error('Mật khẩu không khớp!'));
                                     },
                                 }),
                             ]}
                             style={{ marginBottom: 24 }}
                         >
-                            <Input.Password prefix={<LockOutlined className="site-form-item-icon" />} placeholder="Xác nhận mật khẩu" />
+                            <Input.Password 
+                                prefix={<LockOutlined className="site-form-item-icon" />} 
+                                placeholder="Xác nhận mật khẩu" 
+                            />
                         </Form.Item>
 
                         <Form.Item style={{ marginBottom: 16 }}>
-                            <Button type="primary" htmlType="submit" loading={loading} block className="auth-button" style={{ height: '45px', fontWeight: '600', fontSize: '16px' }}>
+                            <Button 
+                                type="primary" 
+                                htmlType="submit" 
+                                loading={loading} 
+                                block 
+                                className="auth-button" 
+                                style={{ 
+                                    height: '45px', 
+                                    fontWeight: '600', 
+                                    fontSize: '16px' 
+                                }}
+                            >
                                 ĐĂNG KÝ
                             </Button>
                         </Form.Item>
                     </Form>
 
-                    {/* === PHẦN 2: GOOGLE (ĐƯA XUỐNG DƯỚI + PHÂN CÁCH) === */}
+                    {/* === ĐĂNG KÝ BẰNG GOOGLE === */}
                     <div style={{ position: 'relative', marginBottom: 20 }}>
-                        <Divider plain style={{ color: '#8c8c8c', fontSize: '13px' }}>Hoặc đăng ký nhanh bằng</Divider>
+                        <Divider plain style={{ color: '#8c8c8c', fontSize: '13px' }}>
+                            Hoặc đăng ký nhanh bằng
+                        </Divider>
                     </div>
 
                     <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 24 }}>
@@ -142,21 +195,38 @@ const RegisterPage = () => {
                             useOneTap={false}
                             theme="outline"
                             size="large"
-                            width="320" // Chỉnh độ rộng cho cân đối
+                            width="320"
                             text="signup_with"
                             shape="rectangular"
                         />
                     </div>
 
-                    <div className="auth-footer" style={{ borderTop: '1px solid #f0f0f0', paddingTop: '15px', textAlign: 'center' }}>
+                    <div 
+                        className="auth-footer" 
+                        style={{ 
+                            borderTop: '1px solid #f0f0f0', 
+                            paddingTop: '15px', 
+                            textAlign: 'center' 
+                        }}
+                    >
                         <span style={{ color: '#666' }}>Bạn đã có tài khoản? </span>
-                        <span onClick={() => navigate('/login')} className="auth-link" style={{ fontWeight: '600', cursor: 'pointer', color: '#1890ff' }}>Đăng nhập ngay</span>
+                        <span 
+                            onClick={() => navigate('/login')} 
+                            className="auth-link" 
+                            style={{ 
+                                fontWeight: '600', 
+                                cursor: 'pointer', 
+                                color: '#1890ff' 
+                            }}
+                        >
+                            Đăng nhập ngay
+                        </span>
                     </div>
                 </div>
 
-                {/* MODAL THÔNG BÁO THÀNH CÔNG (DÙNG CHUNG CHO CẢ 2) */}
+                {/* === MODAL CHỜ DUYỆT === */}
                 <Modal
-                    title="Đăng ký thành công!"
+                    title="✅ Đăng ký thành công!"
                     open={isSuccessModalVisible} 
                     onOk={handleCloseSuccessModal}
                     onCancel={handleCloseSuccessModal}
@@ -165,16 +235,41 @@ const RegisterPage = () => {
                     centered 
                 >
                     <div style={{ padding: '10px 0', textAlign: 'center' }}>
-                        <div style={{ fontSize: '40px', marginBottom: '10px' }}>🎉</div>
-                        <p style={{ fontSize: '16px' }}>Tài khoản của bạn đã được ghi nhận.</p>
+                        <div style={{ fontSize: '50px', marginBottom: '15px' }}>⏳</div>
                         
-                        <div style={{ backgroundColor: '#fffbe6', border: '1px solid #ffe58f', padding: '10px', borderRadius: '6px', marginTop: '10px' }}>
-                            <p style={{ fontWeight: 'bold', color: '#faad14', margin: 0 }}>
-                                ⚠️ TRẠNG THÁI: CHỜ DUYỆT
+                        <div 
+                            style={{ 
+                                backgroundColor: '#fff7e6', 
+                                border: '2px solid #ffa940', 
+                                padding: '15px', 
+                                borderRadius: '8px', 
+                                marginTop: '10px',
+                                textAlign: 'left'
+                            }}
+                        >
+                            <p style={{ 
+                                fontWeight: 'bold', 
+                                color: '#fa8c16', 
+                                fontSize: '15px',
+                                margin: '0 0 10px 0' 
+                            }}>
+                                🔔 TRẠNG THÁI: CHỜ DUYỆT
                             </p>
-                            <p style={{ fontSize: '13px', color: '#666', margin: '5px 0 0 0' }}>
-                                Hệ thống đã gửi thông báo đến Admin.<br/>
-                                Vui lòng chờ Quản trị viên kích hoạt tài khoản.
+                            <p style={{ 
+                                fontSize: '14px', 
+                                color: '#595959', 
+                                margin: 0,
+                                lineHeight: '1.6'
+                            }}>
+                                {pendingMessage || 'Tài khoản của bạn đã được ghi nhận và đang chờ Admin phê duyệt.'}
+                            </p>
+                            <p style={{ 
+                                fontSize: '13px', 
+                                color: '#8c8c8c', 
+                                margin: '10px 0 0 0',
+                                fontStyle: 'italic'
+                            }}>
+                                💡 Bạn sẽ nhận được email thông báo khi tài khoản được kích hoạt.
                             </p>
                         </div>
                     </div>
