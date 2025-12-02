@@ -13,7 +13,8 @@ import logo2 from './dtvt.jpg';
 
 const API_URL_LOGIN = 'https://lich-tuan-api-bcg9d2aqfgbwbbcv.eastasia-01.azurewebsites.net/api/login'; 
 // 👇 DÁN CLIENT ID CỦA BẠN VÀO ĐÂY
-const GOOGLE_CLIENT_ID = "mhvbrg2rjeqvlltsc2herhpuovd1asv5";
+// Tìm dòng này và sửa lại:
+const GOOGLE_CLIENT_ID = "494075819114-mhvbrg2rjeqvlltsc2herhpuovd1asv5.apps.googleusercontent.com";
 const BASE_API_URL = 'https://lich-tuan-api-bcg9d2aqfgbwbbcv.eastasia-01.azurewebsites.net/api';
 
 const LoginPage = () => {

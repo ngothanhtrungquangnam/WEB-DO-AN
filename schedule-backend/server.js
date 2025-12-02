@@ -11,7 +11,7 @@ const adminMiddleware = require('./middleware/admin');
 
 const app = express();
 const { OAuth2Client } = require('google-auth-library');
-const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID || 'DÁN_CLIENT_ID_CỦA_BẠN_VÀO_ĐÂY');
+const client = new OAuth2Client('494075819114-mhvbrg2rjeqvlltsc2herhpuovd1asv5.apps.googleusercontent.com');
 // Tìm đoạn cấu hình CORS và sửa thành:
 const corsOptions = {
     origin: '*', // Tạm thời cho phép tất cả để tránh lỗi (sau này sửa lại link web sau)

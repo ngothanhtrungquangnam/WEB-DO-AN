@@ -14,7 +14,8 @@ import logo2 from './dtvt.jpg';
 const BASE_API_URL = 'https://lich-tuan-api-bcg9d2aqfgbwbbcv.eastasia-01.azurewebsites.net/api';
 
 // 👇 CLIENT ID CỦA BẠN
-const GOOGLE_CLIENT_ID = "mhvbrg2rjeqvlltsc2herhpuovd1asv5";
+// Tìm dòng này và sửa lại:
+const GOOGLE_CLIENT_ID = "494075819114-mhvbrg2rjeqvlltsc2herhpuovd1asv5.apps.googleusercontent.com";
 
 const RegisterPage = () => {
     const [loading, setLoading] = useState(false);
