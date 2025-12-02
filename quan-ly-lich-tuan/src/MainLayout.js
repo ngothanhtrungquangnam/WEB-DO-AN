@@ -16,7 +16,7 @@ import {
   CheckCircleOutlined,
   ClockCircleOutlined,
   TableOutlined,
-  SendOutlined // 👈 Icon máy bay giấy (Mới)
+  SendOutlined
 } from '@ant-design/icons';
 import dutLogo from './dut.jpg'; 
 
@@ -40,6 +40,7 @@ const isAdminOrManager = (user) => user && (user.role === 'admin' || user.role =
 
 const MainLayout = () => {
   const [collapsed, setCollapsed] = useState(true); 
+  const [isMobile, setIsMobile] = useState(window.innerWidth < 768); // ✅ Phát hiện mobile
   const [user, setUser] = useState(getCurrentUser()); 
   
   const [stats, setStats] = useState({
@@ -51,9 +52,30 @@ const MainLayout = () => {
   const location = useLocation();
   const navigate = useNavigate();
 
+    // ✅ THÊM: Xử lý responsive
+    useEffect(() => {
+        const handleResize = () => {
+            const mobile = window.innerWidth < 768;
+            setIsMobile(mobile);
+            if (mobile) {
+                setCollapsed(true); // Đóng sidebar khi chuyển sang mobile
+            }
+        };
+
+        window.addEventListener('resize', handleResize);
+        return () => window.removeEventListener('resize', handleResize);
+    }, []);
+
     useEffect(() => {
         setUser(getCurrentUser());
     }, [location.pathname]);
+
+    // ✅ THÊM: Tự động đóng sidebar trên mobile khi đổi route
+    useEffect(() => {
+        if (isMobile) {
+            setCollapsed(true);
+        }
+    }, [location.pathname, isMobile]);
 
     useEffect(() => {
         const fetchAdminStats = () => {
@@ -78,12 +100,18 @@ const MainLayout = () => {
         return () => clearInterval(interval);
     }, [location.pathname]); 
 
-
     const handleLogout = () => {
         localStorage.removeItem('userToken');
         localStorage.removeItem('userData');
         message.success('Đã đăng xuất thành công.');
         navigate('/login', { replace: true });
+    };
+
+    // ✅ THÊM: Hàm xử lý khi click menu item
+    const handleMenuClick = (e) => {
+        if (isMobile) {
+            setCollapsed(true); // Đóng sidebar trên mobile
+        }
     };
 
     const getMenuItems = (user) => {
@@ -144,15 +172,12 @@ const MainLayout = () => {
                 icon: <FormOutlined />,
                 hidden: isManager 
             }, 
-            
-            // 👇 [MỚI] THÊM MỤC LỊCH ĐÃ GỬI (Chỉ hiện cho User thường)
             { 
                 key: '/lich-da-gui', 
                 label: <Link to="/lich-da-gui">Lịch đã gửi</Link>,
                 icon: <SendOutlined />, 
-                hidden: isManager // Admin/Manager không cần xem cái này
+                hidden: isManager
             }, 
-
             { 
                 key: '/quan-ly', 
                 label: (
@@ -238,7 +263,21 @@ const MainLayout = () => {
           collapsed={collapsed} 
           onCollapse={(value) => setCollapsed(value)}
           trigger={null} 
-          collapsedWidth={0} 
+          collapsedWidth={isMobile ? 0 : 80} // ✅ Ẩn hoàn toàn trên mobile
+          breakpoint="md" // ✅ Thêm breakpoint
+          onBreakpoint={(broken) => {
+              setIsMobile(broken);
+              if (broken) setCollapsed(true);
+          }}
+          style={{
+              overflow: 'auto',
+              height: '100vh',
+              position: isMobile ? 'fixed' : 'relative', // ✅ Fixed trên mobile
+              left: 0,
+              top: 0,
+              bottom: 0,
+              zIndex: isMobile ? 1000 : 'auto', // ✅ Nổi lên trên mobile
+          }}
         >
             <div style={{ display: 'flex', alignItems: 'center', padding: '16px', backgroundColor: '#1890ff', height: 64 }}>
                 <Button
@@ -258,28 +297,74 @@ const MainLayout = () => {
             defaultOpenKeys={['sub-nguoi-dung', 'sub-lich-tuan']}
             style={{ height: '100%', borderRight: 0 }}
             items={filterMenuItems(getMenuItems(user))} 
+            onClick={handleMenuClick} // ✅ Đóng sidebar khi click menu trên mobile
           />
         </Sider>
 
+        {/* ✅ THÊM: Overlay đen khi sidebar mở trên mobile */}
+        {isMobile && !collapsed && (
+            <div
+                onClick={() => setCollapsed(true)}
+                style={{
+                    position: 'fixed',
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    bottom: 0,
+                    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+                    zIndex: 999,
+                }}
+            />
+        )}
+
         <Layout>
-          <Header style={{ backgroundColor: '#ffD700', display: 'flex', alignItems: 'center', color: '#000', justifyContent: 'space-between', padding: '0 24px', height: 64 }}>
+          <Header style={{ 
+              backgroundColor: '#ffD700', 
+              display: 'flex', 
+              alignItems: 'center', 
+              color: '#000', 
+              justifyContent: 'space-between', 
+              padding: '0 24px', 
+              height: 64,
+              position: 'sticky', // ✅ Header dính trên cùng
+              top: 0,
+              zIndex: 900
+          }}>
                 <Button
                     type="text"
                     icon={<MenuOutlined />}
                     onClick={() => setCollapsed(!collapsed)} 
-                    style={{ color: '#000', fontSize: '18px', display: collapsed ? 'block' : 'none' }}
+                    style={{ 
+                        color: '#000', 
+                        fontSize: '18px', 
+                        display: collapsed ? 'block' : 'none' // ✅ Hiện nút khi sidebar đóng
+                    }}
                 />
                 <Space size="middle" style={{ marginLeft: 'auto' }}>
                     {user && (
-                        <Text strong style={{ color: '#000' }}>
-                            Xin chào, {user.fullName || user.email} ({user.role})
+                        <Text strong style={{ color: '#000', fontSize: isMobile ? '12px' : '14px' }}>
+                            {isMobile ? user.fullName?.split(' ')[0] : `Xin chào, ${user.fullName || user.email}`} ({user.role})
                         </Text>
                     )}
-                    <Button type="primary" danger onClick={handleLogout} icon={<LogoutOutlined />}>Đăng xuất</Button>
+                    <Button 
+                        type="primary" 
+                        danger 
+                        onClick={handleLogout} 
+                        icon={<LogoutOutlined />}
+                        size={isMobile ? 'small' : 'middle'}
+                    >
+                        {!isMobile && 'Đăng xuất'}
+                    </Button>
                 </Space>
           </Header>
 
-          <Content style={{ padding: 24, margin: '16px', minHeight: 280, background: '#fff', borderRadius: '8px' }}>
+          <Content style={{ 
+              padding: isMobile ? 12 : 24, 
+              margin: isMobile ? '8px' : '16px', 
+              minHeight: 280, 
+              background: '#fff', 
+              borderRadius: '8px' 
+          }}>
             <Outlet />
           </Content>
         </Layout>
