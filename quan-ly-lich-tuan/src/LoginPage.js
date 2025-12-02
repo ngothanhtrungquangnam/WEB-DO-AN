@@ -72,21 +72,31 @@ const LoginPage = () => {
                 navigate('/', { replace: true });
             })
             .catch(err => {
-                if (err.response && err.response.status === 403) {
+             // 👇 TRƯỜNG HỢP 1: CHƯA CÓ TÀI KHOẢN (LỖI 404)
+                if (err.response && err.response.status === 404) {
+                    Modal.confirm({
+                        title: 'Tài khoản chưa đăng ký',
+                        icon: <ExclamationCircleOutlined />,
+                        content: 'Email Google này chưa có trong hệ thống. Bạn có muốn đăng ký tài khoản mới không?',
+                        okText: 'Đăng ký ngay',
+                        cancelText: 'Hủy',
+                        onOk() {
+                            navigate('/dang-ky-tai-khoan'); // Chuyển sang trang đăng ký
+                        }
+                    });
+                } 
+                // 👇 TRƯỜNG HỢP 2: CHỜ DUYỆT (LỖI 403)
+                else if (err.response && err.response.status === 403) {
                     Modal.warning({
                         title: 'Thông báo',
-                        content: (
-                            <div>
-                                <p>{err.response.data.message}</p>
-                                <p style={{fontSize: '13px', color: '#888'}}>Vui lòng đợi Quản trị viên kích hoạt tài khoản của bạn.</p>
-                            </div>
-                        ),
+                        content: err.response.data.message, // "Tài khoản đang chờ duyệt..."
                         okText: 'Đã hiểu',
                         centered: true
                     });
-                } else {
-                    // Hiện lỗi Google vào khung đỏ luôn cho dễ thấy
-                    setLoginError('Lỗi đăng nhập Google: ' + (err.response?.data?.message || err.message));
+                } 
+                // 👇 TRƯỜNG HỢP KHÁC
+                else {
+                    message.error('Lỗi: ' + (err.response?.data?.message || err.message));
                 }
             })
             .finally(() => setLoading(false));
