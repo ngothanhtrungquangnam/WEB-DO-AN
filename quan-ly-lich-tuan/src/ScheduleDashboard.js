@@ -229,17 +229,20 @@ const ScheduleDashboard = () => {
         render: (record) => record.trangThai === 'da_duyet' ? <div style={{ width: 20, height: 20, backgroundColor: '#4CAF50', borderRadius: '50%', margin: 'auto' }}></div> : record.trangThai === 'cho_duyet' ? <div style={{ width: 20, height: 20, backgroundColor: '#ff9800', borderRadius: '50%', margin: 'auto' }}></div> : null
     },
     // 👇 CỘT HÀNH ĐỘNG CŨ
-    { 
-        title: 'Hành Động', key: 'hanhDong', width: 120, align: 'center', className: 'column-header-custom',
+   { 
+        title: 'Hành Động', key: 'hanhDong', width: 80, align: 'center', className: 'column-header-custom',
         render: (_, record) => {
             const isOwner = currentUserEmail === record.chuTriEmail;
-            const canDelete = isAdmin || (isOwner && record.trangThai !== 'da_duyet'); // Logic chặn xóa khi đã duyệt
+            const canDelete = isAdmin || (isOwner && record.trangThai !== 'da_duyet');
+
+            // Nếu không có quyền xóa thì không hiện gì cả
+            if (!canDelete) return null;
+
             return (
-                <div style={{display: 'flex', flexDirection: 'column', gap: '5px', alignItems: 'center'}}>
-                    <Tooltip title="Thêm vào Outlook"><Button size="small" style={{ backgroundColor: '#6c5ce7', color: '#fff', borderColor: '#6c5ce7', width: '100%' }} icon={<CalendarOutlined />} /></Tooltip>
-                    {canDelete && <Popconfirm title="Xóa lịch này?" onConfirm={() => handleDeleteSchedule(record.id)} okText="Xóa" cancelText="Hủy"><Button size="small" danger icon={<DeleteOutlined />} style={{width: '100%'}}>Xóa</Button></Popconfirm>}
-                </div>
-            ) 
+                <Popconfirm title="Xóa lịch này?" onConfirm={() => handleDeleteSchedule(record.id)} okText="Xóa" cancelText="Hủy">
+                    <Button size="small" danger icon={<DeleteOutlined />}>Xóa</Button>
+                </Popconfirm>
+            );
         }
     },
   ];
