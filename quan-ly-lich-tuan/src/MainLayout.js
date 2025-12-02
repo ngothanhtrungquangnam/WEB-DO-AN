@@ -16,9 +16,7 @@ import {
   CheckCircleOutlined,
   ClockCircleOutlined,
   TableOutlined,
-  SendOutlined,
-  HistoryOutlined,
-  SettingOutlined 
+  SendOutlined // 👈 Icon máy bay giấy (Mới)
 } from '@ant-design/icons';
 import dutLogo from './dut.jpg'; 
 
@@ -41,8 +39,12 @@ const getCurrentUser = () => {
 const isAdminOrManager = (user) => user && (user.role === 'admin' || user.role === 'manager');
 
 const MainLayout = () => {
-  // Khởi tạo collapsed dựa trên localStorage để F5 vẫn giữ nguyên trạng thái
   const [collapsed, setCollapsed] = useState(localStorage.getItem('sidebarCollapsed') === 'true');
+
+// Thêm useEffect để lưu trạng thái mỗi khi thay đổi
+useEffect(() => {
+    localStorage.setItem('sidebarCollapsed', collapsed);
+}, [collapsed]);
   const [user, setUser] = useState(getCurrentUser()); 
   
   const [stats, setStats] = useState({
@@ -53,11 +55,6 @@ const MainLayout = () => {
 
   const location = useLocation();
   const navigate = useNavigate();
-
-    // Lưu trạng thái collapsed mỗi khi thay đổi
-    useEffect(() => {
-        localStorage.setItem('sidebarCollapsed', collapsed);
-    }, [collapsed]);
 
     useEffect(() => {
         setUser(getCurrentUser());
@@ -98,6 +95,7 @@ const MainLayout = () => {
         const isManager = isAdminOrManager(user);
         const totalUserNotifs = stats.pendingUsers + stats.pendingResets;
 
+        // 1. MENU CON NGƯỜI DÙNG
         const userSubItems = [
             {
                 key: '/nguoi-dung/ca-nhan',
@@ -111,7 +109,10 @@ const MainLayout = () => {
                     <Link to="/nguoi-dung/quan-ly" style={{ display: 'flex', alignItems: 'center' }}>
                         <span>Quản lý tài khoản</span>
                         {stats.pendingResets > 0 && (
-                            <Badge count={stats.pendingResets} style={{ marginLeft: '8px', backgroundColor: '#faad14' }} />
+                            <Badge 
+                                count={stats.pendingResets} 
+                                style={{ marginLeft: '8px', backgroundColor: '#faad14' }} 
+                            />
                         )}
                     </Link>
                 ),
@@ -124,7 +125,10 @@ const MainLayout = () => {
                     <Link to="/nguoi-dung/can-duyet" style={{ display: 'flex', alignItems: 'center' }}>
                         <span>Tài khoản cần duyệt</span>
                         {stats.pendingUsers > 0 && (
-                            <Badge count={stats.pendingUsers} style={{ marginLeft: '8px', backgroundColor: '#52c41a' }} />
+                            <Badge 
+                                count={stats.pendingUsers} 
+                                style={{ marginLeft: '8px', backgroundColor: '#52c41a' }} 
+                            />
                         )}
                     </Link>
                 ),
@@ -132,6 +136,7 @@ const MainLayout = () => {
             }
         ];
 
+        // 2. MENU CON LỊCH TUẦN
         const lichTuanItems = [
             { 
                 key: '/', 
@@ -142,20 +147,31 @@ const MainLayout = () => {
                 key: '/dang-ky', 
                 label: <Link to="/dang-ky">Đăng ký lịch tuần</Link>,
                 icon: <FormOutlined />,
+                hidden: isManager 
             }, 
+            
+            // 👇 [MỚI] THÊM MỤC LỊCH ĐÃ GỬI (Chỉ hiện cho User thường)
             { 
                 key: '/lich-da-gui', 
                 label: <Link to="/lich-da-gui">Lịch đã gửi</Link>,
                 icon: <SendOutlined />, 
-                hidden: isManager 
+                hidden: isManager // Admin/Manager không cần xem cái này
             }, 
+
             { 
                 key: '/quan-ly', 
                 label: (
                     <Link to="/quan-ly" style={{ display: 'flex', alignItems: 'center' }}>
                         <span>Quản lý/Duyệt lịch</span>
                         {stats.pendingSchedules > 0 && (
-                             <Badge count={stats.pendingSchedules} style={{ marginLeft: '8px', backgroundColor: '#ff4d4f', boxShadow: '0 0 0 1px #d9d9d9 inset' }} />
+                             <Badge 
+                                count={stats.pendingSchedules} 
+                                style={{ 
+                                    marginLeft: '8px', 
+                                    backgroundColor: '#ff4d4f',
+                                    boxShadow: '0 0 0 1px #d9d9d9 inset'
+                                }} 
+                            />
                         )}
                     </Link>
                 ),
@@ -203,19 +219,6 @@ const MainLayout = () => {
                 icon: <ApartmentOutlined />, 
                 label: <Link to="/khoa-phong">Khoa và phòng ban</Link>,
             },
-            // MỤC MỚI: CẤU HÌNH EMAIL
-            { 
-                key: '/cau-hinh-email', 
-                icon: <SettingOutlined />, 
-                label: <Link to="/cau-hinh-email">Cấu hình Email</Link>,
-                hidden: !isManager 
-            },
-            { 
-                key: '/lich-da-gui-admin', 
-                icon: <HistoryOutlined />, 
-                label: <Link to="/lich-da-gui">Lịch tôi đã gửi</Link>, 
-                hidden: !isManager 
-            },
         ];
     };
 
@@ -233,7 +236,7 @@ const MainLayout = () => {
 
   return (
     <Layout style={{ minHeight: '100vh' }}>
-        {/* SIDEBAR (Cố định bên trái) */}
+        {/* 1. SIDER: THÊM style position: fixed ĐỂ CỐ ĐỊNH NÓ */}
         <Sider 
           width={250} 
           className="custom-sider"
@@ -241,15 +244,15 @@ const MainLayout = () => {
           collapsed={collapsed} 
           onCollapse={(value) => setCollapsed(value)}
           trigger={null} 
-          collapsedWidth={0} // Ẩn hoàn toàn khi đóng
+          collapsedWidth={0} 
           style={{
             overflow: 'auto',
             height: '100vh',
-            position: 'fixed',
+            position: 'fixed', // 👈 Cố định sidebar
             left: 0,
             top: 0,
             bottom: 0,
-            zIndex: 1000, // Đảm bảo luôn nằm trên cùng
+            zIndex: 1000,
           }}
         >
             <div style={{ display: 'flex', alignItems: 'center', padding: '16px', backgroundColor: '#1890ff', height: 64 }}>
@@ -273,13 +276,13 @@ const MainLayout = () => {
           />
         </Sider>
 
-        {/* CONTENT AREA (Tự động co giãn) */}
+        {/* 2. CONTENT LAYOUT: THÊM logic marginLeft ĐỂ CO GIÃN */}
         <Layout 
             style={{ 
-                // 👇👇👇 LOGIC QUAN TRỌNG ĐỂ KHẮC PHỤC LỖI F5 👇👇👇
+                // 👇 Logic quan trọng: Nếu đóng thì margin 0, nếu mở thì margin 250px
                 marginLeft: collapsed ? 0 : 250, 
-                transition: 'margin-left 0.2s',
-                minHeight: '100vh' 
+                transition: 'all 0.2s', // Hiệu ứng trượt mượt mà
+                minHeight: '100vh'
             }}
         >
           <Header style={{ backgroundColor: '#ffD700', display: 'flex', alignItems: 'center', color: '#000', justifyContent: 'space-between', padding: '0 24px', height: 64 }}>
