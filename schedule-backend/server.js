@@ -144,39 +144,65 @@ app.post('/api/login', async (req, res) => {
     }
 });
 // =============================================================
-// 🔥 API ĐĂNG NHẬP GOOGLE
+// API ĐĂNG NHẬP GOOGLE (ĐÃ SỬA LOGIC CHỜ DUYỆT)
 // =============================================================
 app.post('/api/auth/google', async (req, res) => {
     const { token } = req.body;
     try {
-        // 1. Xác minh Token với Google
+        // 1. Xác minh Google
         const ticket = await client.verifyIdToken({
             idToken: token,
-            audience: process.env.GOOGLE_CLIENT_ID || 'DÁN_CLIENT_ID_CỦA_BẠN_VÀO_ĐÂY',
+            audience: '494075819114-mhvbrg2rjeqvlltsc2herhpuovd1asv5.apps.googleusercontent.com',
         });
-        const payload = ticket.getPayload();
-        const { email, name, picture } = payload;
+        const { email, name } = ticket.getPayload();
 
         // 2. Kiểm tra User trong DB
         const [users] = await db.promise().query('SELECT * FROM users WHERE email = ?', [email]);
 
         let user;
+
         if (users.length > 0) {
-            // Đã có -> Đăng nhập
+            // --- TRƯỜNG HỢP 1: ĐÃ CÓ TÀI KHOẢN ---
             user = users[0];
-            if (user.status === 'rejected') return res.status(403).json({ message: 'Tài khoản bị khóa.' });
+
+            // 👇 CHẶN NGAY NẾU CHƯA DUYỆT
+            if (user.status === 'pending') {
+                return res.status(403).json({ message: 'Tài khoản Google này đang chờ Admin duyệt.' });
+            }
+            if (user.status === 'rejected') {
+                return res.status(403).json({ message: 'Tài khoản Google này đã bị từ chối.' });
+            }
+
+            // Nếu Active thì cho vào
         } else {
-            // Chưa có -> Tự động Đăng ký
+            // --- TRƯỜNG HỢP 2: CHƯA CÓ (ĐĂNG KÝ MỚI) ---
+            
+            // Tạo pass ngẫu nhiên
             const randomPass = Math.random().toString(36).slice(-8);
             const hashed = await bcrypt.hash(randomPass, 10);
-            const sql = `INSERT INTO users (email, passwordHash, role, status, hostName) VALUES (?, ?, 'user', 'active', ?)`;
+
+            // 👇 QUAN TRỌNG: LƯU LÀ 'pending' THAY VÌ 'active'
+            const sql = `INSERT INTO users (email, passwordHash, role, status, hostName) VALUES (?, ?, 'user', 'pending', ?)`;
             const [result] = await db.promise().query(sql, [email, hashed, name]);
-            user = { id: result.insertId, email, role: 'user', status: 'active', hostName: name };
+
+            // 👇 GỬI MAIL BÁO ADMIN CÓ NGƯỜI ĐĂNG KÝ GOOGLE
+            db.query("SELECT setting_value FROM system_settings WHERE setting_key = 'admin_email'", (e, rows) => {
+                const toEmail = (rows && rows.length > 0) ? rows[0].setting_value : 'ngo178384@gmail.com';
+                transporter.sendMail({
+                    from: '"Lịch Tuần" <106220239@sv1.dut.udn.vn>',
+                    to: toEmail,
+                    subject: `👤 ĐĂNG KÝ GOOGLE MỚI: ${name}`,
+                    html: `<p>Người dùng <b>${name}</b> (${email}) vừa đăng ký bằng Google.</p><p>Vui lòng vào duyệt.</p>`
+                });
+            });
+
+            // 👇 TRẢ VỀ LỖI 403 ĐỂ FRONTEND BIẾT LÀ CẦN CHỜ DUYỆT (KHÔNG CHO LOGIN)
+            return res.status(403).json({ message: 'Đăng ký Google thành công! Vui lòng chờ Admin duyệt rồi thử lại.' });
         }
 
-        // 3. Trả về Token
+        // 3. Nếu đã Active thì tạo Token cho vào
         const jwtToken = jwt.sign(
-            { id: user.id, email: user.email, role: user.role, fullName: user.hostName }, 
+            { id: user.id, email: user.email, role: user.role, fullName: user.hostName, hostName: user.hostName }, 
             JWT_SECRET, { expiresIn: '1d' }
         );
 
