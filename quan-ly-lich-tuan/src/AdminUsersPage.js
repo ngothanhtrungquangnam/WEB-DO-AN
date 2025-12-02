@@ -292,26 +292,60 @@ const AdminUsersPage = ({ type }) => {
             </Modal>
 
             {/* Modal Cấu hình Email */}
-           {/* 👇 THÊM MODAL NÀY VÀO CUỐI CÙNG 👇 */}
+          {/* Modal Cấu hình Email (ĐÃ NÂNG CẤP) */}
             <Modal
                 title="Cấu hình Email Nhận Thông Báo"
                 open={isEmailModalVisible}
-                onOk={handleSaveEmail}
+                onOk={handleSaveEmail} // Vẫn giữ nút Lưu chính
                 onCancel={() => setIsEmailModalVisible(false)}
                 okText="Lưu thay đổi"
+                cancelText="Hủy"
             >
-                <p>Khi có người dùng đăng ký lịch mới, hệ thống sẽ gửi email thông báo về địa chỉ này:</p>
-                <Input 
-                    prefix={<MailOutlined />} 
-                    value={adminEmail} 
-                    onChange={(e) => setAdminEmail(e.target.value)} 
-                    placeholder="Nhập email của Admin..."
-                />
+                <p>Nhập email Admin để nhận thông báo khi có lịch mới:</p>
+                
+                <div style={{ display: 'flex', gap: '10px', alignItems: 'flex-start' }}>
+                    <Form layout="vertical" style={{ flex: 1 }}>
+                         <Form.Item
+                            name="test_email" // Tên tạm để validate
+                            initialValue={adminEmail}
+                            rules={[
+                                { required: true, message: 'Không được để trống' },
+                                { type: 'email', message: 'Email không hợp lệ!' } // 👈 Chặn sai cú pháp
+                            ]}
+                            style={{ marginBottom: 0 }}
+                        >
+                            <Input 
+                                prefix={<MailOutlined />} 
+                                value={adminEmail} 
+                                onChange={(e) => setAdminEmail(e.target.value)} 
+                                placeholder="Ví dụ: admin@dut.udn.vn" 
+                            />
+                        </Form.Item>
+                    </Form>
+                    
+                    {/* 👇 NÚT GỬI THỬ MỚI 👇 */}
+                    <Button 
+                        onClick={() => {
+                            if (!adminEmail) return message.warning('Hãy nhập email trước!');
+                            message.loading({ content: 'Đang gửi mail thử...', key: 'test_mail' });
+                            
+                            axios.post(`${BASE_API_URL}/settings/test-email`, { email: adminEmail }, getConfig())
+                                .then(() => {
+                                    message.success({ content: 'Đã gửi! Hãy kiểm tra hộp thư.', key: 'test_mail', duration: 3 });
+                                })
+                                .catch(() => {
+                                    message.error({ content: 'Email không tồn tại hoặc không gửi được!', key: 'test_mail', duration: 4 });
+                                });
+                        }}
+                    >
+                        Gửi thử
+                    </Button>
+                </div>
+
                 <Text type="secondary" style={{fontSize: '12px', marginTop: '8px', display: 'block'}}>
-                    Lưu ý: Sau khi lưu, hệ thống sẽ áp dụng ngay lập tức.
+                    💡 Mẹo: Hãy bấm "Gửi thử" để chắc chắn email nhận được tin trước khi Lưu.
                 </Text>
             </Modal>
-            {/* 👆 HẾT */}
         </div>
     );
 };

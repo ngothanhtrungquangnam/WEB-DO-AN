@@ -431,11 +431,10 @@ if (currentUserRole !== 'admin' && currentUserRole !== 'manager' && !isMyCreatio
     });
 });
 
-// Đăng ký Lịch (CÓ LOGIC ĐỌC EMAIL TỪ DATABASE)
+// Đăng ký Lịch (PHIÊN BẢN ĐÃ FIX: ĐỌC EMAIL TỪ DATABASE)
 app.post('/api/schedules', authMiddleware, (req, res) => {
     const { ngay, thoiGian, thuocPhuLuc, isBoSung, noiDung, thanhPhan, guiMail, diaDiem, chuTriTen, chuTriEmail, donVi } = req.body;
     
-    // Format dữ liệu
     const ngayF = dayjs(ngay).format('YYYY-MM-DD');
     const bd = thoiGian ? dayjs(thoiGian[0]).format('HH:mm:ss') : '07:00:00';
     const kt = thoiGian ? dayjs(thoiGian[1]).format('HH:mm:ss') : '11:00:00';
@@ -447,26 +446,34 @@ app.post('/api/schedules', authMiddleware, (req, res) => {
     db.query(sql, values, (err) => {
         if (err) return res.status(500).json({ error: 'Lỗi DB' });
 
-        // 👇 ĐOẠN QUAN TRỌNG NHẤT: ĐỌC EMAIL TỪ DATABASE RA 👇
+        // 👇👇👇 ĐOẠN QUAN TRỌNG NHẤT: CHUI VÀO DB LẤY EMAIL 👇👇👇
         db.query("SELECT setting_value FROM system_settings WHERE setting_key = 'admin_email'", (e, rows) => {
-            // Nếu tìm thấy trong DB thì dùng, không thì dùng mặc định
-            const toEmail = (rows && rows.length > 0) ? rows[0].setting_value : 'ngo178384@gmail.com';
             
+            // Kiểm tra xem trong DB có email không?
+            let emailNhan = '';
+            if (rows && rows.length > 0) {
+                emailNhan = rows[0].setting_value;
+                console.log("✅ Đã tìm thấy email trong DB:", emailNhan);
+            } else {
+                emailNhan = 'ngothanhtrung0220@gmail.com'; // Email dự phòng cuối cùng
+                console.log("⚠️ Không tìm thấy trong DB, dùng email mặc định:", emailNhan);
+            }
+
             const mailOptions = {
-                from: '"Hệ thống Lịch Tuần" <106220239@sv1.dut.udn.vn>',
-                to: toEmail, // <--- Gửi đến email động này
+                from: '"Lịch Tuần" <106220239@sv1.dut.udn.vn>',
+                to: emailNhan, // Gửi tới email vừa tìm được
                 subject: `🔔 LỊCH MỚI: ${chuTriTen}`,
                 html: `<p>Có lịch mới từ <b>${chuTriTen}</b>.</p><p>Nội dung: ${noiDung}</p>`
             };
             
-            // Gửi mail
             transporter.sendMail(mailOptions, (err) => { 
-                if(err) console.log('Lỗi gửi mail:', err); 
-                else console.log(`Đã gửi mail tới: ${toEmail}`);
+                if(err) console.log('❌ Lỗi gửi mail:', err); 
+                else console.log('✅ Đã gửi mail thành công!');
             });
         });
+        // 👆👆👆 HẾT PHẦN LOGIC MỚI 👆👆👆
 
-        res.status(201).json({ message: 'Đăng ký thành công!' });
+        res.status(201).json({ message: 'OK' });
     });
 });
 // Duyệt Lịch
@@ -672,6 +679,29 @@ app.put('/api/settings/admin-email', authMiddleware, adminMiddleware, (req, res)
     db.query(sql, [email, email], (err) => {
         if (err) return res.status(500).json({ message: 'Lỗi cập nhật.' });
         res.json({ message: 'Đã cập nhật Email nhận thông báo thành công!' });
+    });
+});
+// 3. API Gửi thử Email (Test Connection)
+app.post('/api/settings/test-email', authMiddleware, adminMiddleware, (req, res) => {
+    const { email } = req.body;
+    
+    const mailOptions = {
+        from: '"Hệ thống Lịch Tuần" <106220239@sv1.dut.udn.vn>',
+        to: email,
+        subject: '✅ KIỂM TRA EMAIL HỆ THỐNG',
+        html: `<div style="color: green; font-weight: bold;">
+                Chúc mừng! Email này hoạt động tốt.<br/>
+                Bạn có thể yên tâm lưu cấu hình.
+               </div>`
+    };
+
+    transporter.sendMail(mailOptions, (err, info) => {
+        if (err) {
+            console.error("Test mail fail:", err);
+            // Trả về lỗi chi tiết để Frontend hiển thị
+            return res.status(400).json({ message: 'Gửi thất bại! Email không tồn tại hoặc chặn thư lạ.' });
+        }
+        res.json({ message: 'Gửi thành công! Hãy kiểm tra hộp thư.' });
     });
 });
 
