@@ -1,21 +1,17 @@
 import React, { useState } from 'react';
-// 👇 Import thêm Divider
-import { Form, Input, Button, message, Modal, Alert, Divider } from 'antd'; 
+import { Form, Input, Button, message, Modal, Divider } from 'antd'; 
 import { useNavigate, Link } from 'react-router-dom'; 
 import { LockOutlined, MailOutlined, UserOutlined } from '@ant-design/icons'; 
-// 👇 Import Google
+import axios from 'axios'; 
 import { GoogleOAuthProvider, GoogleLogin } from '@react-oauth/google';
-import axios from 'axios'; // Import Axios nếu chưa có (hoặc dùng fetch cũng được)
 
 import './Auth.css'; 
 import dutLogo from './dut.jpg'; 
 import logo2 from './dtvt.jpg'; 
 
 const API_URL_LOGIN = 'https://lich-tuan-api-bcg9d2aqfgbwbbcv.eastasia-01.azurewebsites.net/api/login'; 
-// 👇 DÁN CLIENT ID CỦA BẠN VÀO ĐÂY
-// Tìm dòng này và sửa lại:
-const GOOGLE_CLIENT_ID = "494075819114-mhvbrg2rjeqvlltsc2herhpuovd1asv5.apps.googleusercontent.com";
 const BASE_API_URL = 'https://lich-tuan-api-bcg9d2aqfgbwbbcv.eastasia-01.azurewebsites.net/api';
+const GOOGLE_CLIENT_ID = "494075819114-mhvbrg2rjeqvlltsc2herhpuovd1asv5.apps.googleusercontent.com";
 
 const LoginPage = () => {
     const [form] = Form.useForm();
@@ -25,7 +21,7 @@ const LoginPage = () => {
 
     const navigate = useNavigate();
 
-    // --- 1. XỬ LÝ ĐĂNG NHẬP THƯỜNG (GIỮ NGUYÊN) ---
+    // --- XỬ LÝ ĐĂNG NHẬP THƯỜNG ---
     const onFinishLogin = (values) => {
         setLoading(true);
         fetch(API_URL_LOGIN, {
@@ -53,22 +49,29 @@ const LoginPage = () => {
         });
     };
 
- const handleGoogleSuccess = (credentialResponse) => {
+    // --- XỬ LÝ ĐĂNG NHẬP GOOGLE ---
+    const handleGoogleSuccess = (credentialResponse) => {
         setLoading(true);
         axios.post(`${BASE_API_URL}/auth/google`, { token: credentialResponse.credential })
             .then(res => {
-                message.success('Đăng nhập thành công!');
+                message.success('Đăng nhập Google thành công!');
                 localStorage.setItem('userToken', res.data.token);
                 localStorage.setItem('userData', JSON.stringify(res.data.user));
-                navigate('/');
+                navigate('/', { replace: true });
             })
             .catch(err => {
-                // 👇 XỬ LÝ RIÊNG TRƯỜNG HỢP CHỜ DUYỆT (403)
+                // Nếu Pending (403) -> Hiện Modal
                 if (err.response && err.response.status === 403) {
                     Modal.warning({
                         title: 'Thông báo',
-                        content: err.response.data.message, // "Đăng ký thành công! Vui lòng chờ duyệt..."
-                        okText: 'Đã hiểu'
+                        content: (
+                            <div>
+                                <p>{err.response.data.message}</p>
+                                <p style={{fontSize: '13px', color: '#888'}}>Vui lòng đợi Quản trị viên kích hoạt tài khoản.</p>
+                            </div>
+                        ),
+                        okText: 'Đã hiểu',
+                        centered: true
                     });
                 } else {
                     message.error('Lỗi: ' + (err.response?.data?.message || err.message));
@@ -77,15 +80,12 @@ const LoginPage = () => {
             .finally(() => setLoading(false));
     };
 
-    const handleRegisterRedirect = () => {
-        navigate('/dang-ky-tai-khoan');
-    };
+    const handleRegisterRedirect = () => navigate('/dang-ky-tai-khoan');
 
-    // --- 2. XỬ LÝ GỬI YÊU CẦU QUÊN MẬT KHẨU (GIỮ NGUYÊN) ---
+    // Xử lý Quên mật khẩu
     const handleSendResetRequest = (values) => {
         setLoading(true);
         setModalError(null); 
-
         fetch(`${API_URL_LOGIN.replace('/login', '/forgot-password-request')}`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -99,24 +99,10 @@ const LoginPage = () => {
         .then(data => {
             setIsForgotModalVisible(false);
             form.resetFields();
-            Modal.success({
-                title: 'Gửi yêu cầu thành công!',
-                content: data.message,
-            });
+            Modal.success({ title: 'Gửi yêu cầu thành công!', content: data.message });
         })
         .catch(error => setModalError(error.message))
         .finally(() => setLoading(false));
-    };
-
-    const handleForgotPassword = () => {
-        setModalError(null); 
-        setIsForgotModalVisible(true); 
-    };
-
-    const handleCloseForgotModal = () => {
-        setIsForgotModalVisible(false); 
-        form.resetFields(); 
-        setModalError(null);
     };
 
     return (
@@ -125,29 +111,14 @@ const LoginPage = () => {
                 <div className="auth-card">
                     <div className="auth-header">
                         <div className="auth-logo-container">
-                            <img src={dutLogo} alt="Logo Trường" className="auth-logo" />
-                            <img src={logo2} alt="Logo Phụ" className="auth-logo" />
+                            <img src={dutLogo} alt="Logo" className="auth-logo" />
+                            <img src={logo2} alt="Logo 2" className="auth-logo" />
                         </div>
                         <h2 className="auth-title">ĐĂNG NHẬP</h2>
                         <p className="auth-subtitle">Hệ thống Quản lý Lịch Tuần</p>
                     </div>
 
-                    {/* 👇 NÚT GOOGLE MỚI (ĐẶT TRÊN CÙNG) */}
-                    <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 20 }}>
-                        <GoogleLogin
-                            onSuccess={handleGoogleSuccess}
-                            onError={() => message.error('Đăng nhập Google thất bại')}
-                            useOneTap
-                            theme="outline"
-                            size="large"
-                            text="signin_with"
-                            shape="pill"
-                            width="300"
-                        />
-                    </div>
-
-                    <Divider plain style={{ color: '#999', fontSize: '12px', margin: '0 0 20px 0' }}>Hoặc đăng nhập bằng tài khoản</Divider>
-
+                    {/* === PHẦN 1: FORM ĐĂNG NHẬP (ĐƯA LÊN TRÊN) === */}
                     <Form
                         name="login_form"
                         onFinish={onFinishLogin}
@@ -158,88 +129,69 @@ const LoginPage = () => {
                         <Form.Item
                             name="email"
                             rules={[{ required: true, message: 'Vui lòng nhập Email!' }]}
+                            style={{marginBottom: 16}}
                         >
-                            <Input prefix={<MailOutlined style={{ color: '#1890ff' }} />} placeholder="Email (Tài khoản)" />
+                            <Input prefix={<MailOutlined className="site-form-item-icon" />} placeholder="Email" />
                         </Form.Item>
 
                         <Form.Item
                             name="password"
                             rules={[{ required: true, message: 'Vui lòng nhập Mật khẩu!' }]}
-                            style={{ marginBottom: 10 }}
+                            style={{ marginBottom: 8 }}
                         >
-                            <Input.Password prefix={<LockOutlined style={{ color: '#1890ff' }} />} placeholder="Mật khẩu" />
+                            <Input.Password prefix={<LockOutlined className="site-form-item-icon" />} placeholder="Mật khẩu" />
                         </Form.Item>
 
                         <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 24 }}>
-                            <span onClick={handleForgotPassword} className="auth-link-hover" style={{ color: '#1890ff', cursor: 'pointer' }}>
+                            <span onClick={() => { setModalError(null); setIsForgotModalVisible(true); }} className="auth-link-hover" style={{ color: '#1890ff', cursor: 'pointer', fontSize: '13px' }}>
                                 Quên mật khẩu?
                             </span>
                         </div>
 
-                        <Form.Item style={{ marginBottom: 24 }}>
-                            <Button type="primary" htmlType="submit" loading={loading} block className="auth-button">
+                        <Form.Item style={{ marginBottom: 16 }}>
+                            <Button type="primary" htmlType="submit" loading={loading} block className="auth-button" style={{ height: '45px', fontWeight: '600', fontSize: '16px' }}>
                                 ĐĂNG NHẬP
                             </Button>
                         </Form.Item>
-
-                        <div className="auth-footer">
-                             <span>Bạn chưa có tài khoản?</span>
-                             <span onClick={handleRegisterRedirect} className="auth-link">Đăng ký ngay</span>
-                        </div>
                     </Form>
+
+                    {/* === PHẦN 2: GOOGLE (ĐƯA XUỐNG DƯỚI) === */}
+                    <div style={{ position: 'relative', marginBottom: 20 }}>
+                        <Divider plain style={{ color: '#8c8c8c', fontSize: '13px' }}>Hoặc đăng nhập bằng</Divider>
+                    </div>
+
+                    <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 24 }}>
+                        <GoogleLogin
+                            onSuccess={handleGoogleSuccess}
+                            onError={() => message.error('Thất bại')}
+                            useOneTap={false}
+                            theme="outline"
+                            size="large"
+                            width="320"
+                            text="signin_with"
+                            shape="rectangular"
+                        />
+                    </div>
+
+                    <div className="auth-footer" style={{ borderTop: '1px solid #f0f0f0', paddingTop: '15px', textAlign: 'center' }}>
+                         <span style={{color: '#666'}}>Bạn chưa có tài khoản? </span>
+                         <span onClick={handleRegisterRedirect} className="auth-link" style={{fontWeight: '600', cursor: 'pointer', color: '#1890ff'}}>Đăng ký ngay</span>
+                    </div>
                 </div>
 
-                {/* MODAL QUÊN MẬT KHẨU (GIỮ NGUYÊN) */}
+                {/* Modal Quên Mật Khẩu */}
                 <Modal
-                    title="Gửi yêu cầu Quên mật khẩu"
+                    title="Quên mật khẩu?"
                     open={isForgotModalVisible}
-                    onCancel={handleCloseForgotModal}
+                    onCancel={() => { setIsForgotModalVisible(false); form.resetFields(); setModalError(null); }}
                     footer={null} 
                 >
-                    <Form 
-                        form={form} 
-                        name="forgot_password_form"
-                        onFinish={handleSendResetRequest}
-                        autoComplete="off"
-                        layout="vertical"
-                    >
-                        <p style={{ marginBottom: 15 }}>
-                            Vui lòng nhập chính xác <b>Email</b> và <b>Họ và Tên</b> đã đăng ký.
-                        </p>
-
-                        {modalError && (
-                            <Alert
-                                message="Lỗi"
-                                description={modalError}
-                                type="error"
-                                showIcon
-                                style={{ marginBottom: 15 }}
-                            />
-                        )}
-                        
-                        <Form.Item
-                            name="email"
-                            rules={[{ required: true, message: 'Vui lòng nhập Email!' }, { type: 'email', message: 'Email không hợp lệ!' }]}
-                        >
-                            <Input prefix={<MailOutlined />} placeholder="Email (Tài khoản)" />
-                        </Form.Item>
-
-                        <Form.Item
-                            name="fullName"
-                            rules={[{ required: true, message: 'Vui lòng nhập Họ và Tên!' }]}
-                        >
-                            <Input prefix={<UserOutlined />} placeholder="Họ và Tên" />
-                        </Form.Item>
-                        
-                        <Form.Item>
-                            <Button type="primary" htmlType="submit" loading={loading} block>
-                                Gửi yêu cầu
-                            </Button>
-                        </Form.Item>
-                        
-                        <div style={{ textAlign: 'center' }}>
-                             <a onClick={handleCloseForgotModal} style={{cursor: 'pointer', color: '#888'}}>Hủy bỏ</a>
-                        </div>
+                    <Form form={form} onFinish={handleSendResetRequest} layout="vertical">
+                        <p style={{marginBottom: 15, fontSize: 13, color: '#666'}}>Nhập thông tin để gửi yêu cầu cấp lại mật khẩu.</p>
+                        {modalError && <div style={{color: 'red', marginBottom: 10}}>{modalError}</div>}
+                        <Form.Item name="email" rules={[{ required: true }]}><Input prefix={<MailOutlined />} placeholder="Email" /></Form.Item>
+                        <Form.Item name="fullName" rules={[{ required: true }]}><Input prefix={<UserOutlined />} placeholder="Họ và Tên" /></Form.Item>
+                        <Button type="primary" htmlType="submit" loading={loading} block>Gửi yêu cầu</Button>
                     </Form>
                 </Modal>
             </div>
