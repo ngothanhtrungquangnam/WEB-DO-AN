@@ -39,7 +39,12 @@ const getCurrentUser = () => {
 const isAdminOrManager = (user) => user && (user.role === 'admin' || user.role === 'manager');
 
 const MainLayout = () => {
-  const [collapsed, setCollapsed] = useState(true); 
+  const [collapsed, setCollapsed] = useState(localStorage.getItem('sidebarCollapsed') === 'true');
+
+// Thêm useEffect để lưu trạng thái mỗi khi thay đổi
+useEffect(() => {
+    localStorage.setItem('sidebarCollapsed', collapsed);
+}, [collapsed]);
   const [user, setUser] = useState(getCurrentUser()); 
   
   const [stats, setStats] = useState({
