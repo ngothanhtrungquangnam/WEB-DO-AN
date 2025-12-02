@@ -306,6 +306,12 @@ const ScheduleDashboard = () => {
 
   // 👇 TẠO CỘT CHO BẢNG IN (LỌC BỎ CỘT THỪA) 👇
   const printColumns = columns.filter(col => col.key !== 'hanhDong' && col.key !== 'evDuyet');
+  const displayColumns = allColumns.filter(col => {
+      if (col.key === 'hanhDong') {
+          return isAdmin; // Nếu không phải Admin -> Trả về false -> Ẩn cột
+      }
+      return true;
+  });
 
   return (
     <div style={{ padding: '0px', backgroundColor: '#fff' }}>
