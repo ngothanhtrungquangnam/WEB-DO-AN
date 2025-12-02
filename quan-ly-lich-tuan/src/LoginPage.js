@@ -72,8 +72,7 @@ const LoginPage = () => {
                 navigate('/', { replace: true });
             })
             .catch(err => {
-             // 👇 TRƯỜNG HỢP 1: CHƯA CÓ TÀI KHOẢN (LỖI 404)
-                if (err.response && err.response.status === 404) {
+              if (err.response && err.response.status === 404) {
                     Modal.confirm({
                         title: 'Tài khoản chưa đăng ký',
                         icon: <ExclamationCircleOutlined />,
@@ -84,8 +83,7 @@ const LoginPage = () => {
                             navigate('/dang-ky-tai-khoan'); // Chuyển sang trang đăng ký
                         }
                     });
-                } 
-                // 👇 TRƯỜNG HỢP 2: CHỜ DUYỆT (LỖI 403)
+                }
                 else if (err.response && err.response.status === 403) {
                     Modal.warning({
                         title: 'Thông báo',
@@ -93,9 +91,8 @@ const LoginPage = () => {
                         okText: 'Đã hiểu',
                         centered: true
                     });
-                } 
-                // 👇 TRƯỜNG HỢP KHÁC
-                else {
+                }
+           else {
                     message.error('Lỗi: ' + (err.response?.data?.message || err.message));
                 }
             })
@@ -104,7 +101,7 @@ const LoginPage = () => {
 
     const handleRegisterRedirect = () => navigate('/dang-ky-tai-khoan');
 
-    // Xử lý Quên mật khẩu ở người dùng
+    // Xử lý Quên mật khẩu
     const handleSendResetRequest = (values) => {
         setLoading(true);
         setModalError(null); 
