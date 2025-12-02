@@ -18,8 +18,9 @@ const LoginPage = () => {
     const [loading, setLoading] = useState(false);
     const [isForgotModalVisible, setIsForgotModalVisible] = useState(false);
     
-    // 👇 STATE MỚI ĐỂ HIỆN LỖI ĐĂNG NHẬP TO RÕ
+    // 👇 State hiển thị lỗi Đăng nhập (Sai pass/email)
     const [loginError, setLoginError] = useState(null);
+    // 👇 State hiển thị lỗi trong Modal Quên mật khẩu
     const [modalError, setModalError] = useState(null);
 
     const navigate = useNavigate();
@@ -27,7 +28,7 @@ const LoginPage = () => {
     // --- 1. XỬ LÝ ĐĂNG NHẬP THƯỜNG ---
     const onFinishLogin = (values) => {
         setLoading(true);
-        setLoginError(null); // Xóa lỗi cũ trước khi đăng nhập lại
+        setLoginError(null); // Reset lỗi cũ
 
         fetch(API_URL_LOGIN, {
             method: 'POST',
@@ -36,10 +37,7 @@ const LoginPage = () => {
         })
         .then(response => {
             if (!response.ok) {
-                return response.json().then(err => { 
-                    // Ném lỗi để xuống catch
-                    throw new Error(err.message || 'Email hoặc mật khẩu không đúng.'); 
-                });
+                return response.json().then(err => { throw new Error(err.message || 'Email hoặc mật khẩu không đúng.') });
             }
             return response.json();
         })
@@ -50,8 +48,7 @@ const LoginPage = () => {
             navigate('/', { replace: true }); 
         })
         .catch(error => {
-            console.error("Lỗi đăng nhập:", error);
-            // 👇 SET LỖI VÀO STATE ĐỂ HIỆN KHUNG ĐỎ
+            // Hiển thị lỗi ra khung đỏ trên màn hình
             setLoginError(error.message);
         })
         .finally(() => {
@@ -59,11 +56,11 @@ const LoginPage = () => {
         });
     };
 
-    // --- XỬ LÝ ĐĂNG NHẬP GOOGLE ---
+    // --- 2. XỬ LÝ ĐĂNG NHẬP GOOGLE ---
     const handleGoogleSuccess = (credentialResponse) => {
         setLoading(true);
-        setLoginError(null); // Xóa lỗi cũ
-        
+        setLoginError(null);
+
         axios.post(`${BASE_API_URL}/auth/google`, { token: credentialResponse.credential })
             .then(res => {
                 message.success('Đăng nhập Google thành công!');
@@ -72,39 +69,36 @@ const LoginPage = () => {
                 navigate('/', { replace: true });
             })
             .catch(err => {
-              if (err.response && err.response.status === 404) {
-                    Modal.confirm({
-                        title: 'Tài khoản chưa đăng ký',
-                        icon: <ExclamationCircleOutlined />,
-                        content: 'Email Google này chưa có trong hệ thống. Bạn có muốn đăng ký tài khoản mới không?',
-                        okText: 'Đăng ký ngay',
-                        cancelText: 'Hủy',
-                        onOk() {
-                            navigate('/dang-ky-tai-khoan'); // Chuyển sang trang đăng ký
-                        }
-                    });
-                }
-                else if (err.response && err.response.status === 403) {
+                // Nếu tài khoản chưa được duyệt (Lỗi 403 từ server)
+                if (err.response && err.response.status === 403) {
                     Modal.warning({
                         title: 'Thông báo',
-                        content: err.response.data.message, // "Tài khoản đang chờ duyệt..."
+                        content: (
+                            <div>
+                                <p>{err.response.data.message}</p>
+                                <p style={{fontSize: '13px', color: '#888'}}>Vui lòng đợi Quản trị viên kích hoạt tài khoản.</p>
+                            </div>
+                        ),
                         okText: 'Đã hiểu',
                         centered: true
                     });
-                }
-           else {
-                    message.error('Lỗi: ' + (err.response?.data?.message || err.message));
+                } else {
+                    // Các lỗi khác thì hiện ra khung đỏ
+                    setLoginError('Lỗi Google: ' + (err.response?.data?.message || err.message));
                 }
             })
             .finally(() => setLoading(false));
     };
 
-    const handleRegisterRedirect = () => navigate('/dang-ky-tai-khoan');
+    const handleRegisterRedirect = () => {
+        navigate('/dang-ky-tai-khoan');
+    };
 
-    // Xử lý Quên mật khẩu
+    // --- 3. XỬ LÝ QUÊN MẬT KHẨU ---
     const handleSendResetRequest = (values) => {
         setLoading(true);
         setModalError(null); 
+
         fetch(`${API_URL_LOGIN.replace('/login', '/forgot-password-request')}`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -124,33 +118,45 @@ const LoginPage = () => {
         .finally(() => setLoading(false));
     };
 
+    const handleForgotPassword = () => {
+        setModalError(null); 
+        setIsForgotModalVisible(true); 
+    };
+
+    const handleCloseForgotModal = () => {
+        setIsForgotModalVisible(false); 
+        form.resetFields(); 
+        setModalError(null);
+    };
+
     return (
         <GoogleOAuthProvider clientId={GOOGLE_CLIENT_ID}>
             <div className="auth-container">
                 <div className="auth-card">
                     <div className="auth-header">
                         <div className="auth-logo-container">
-                            <img src={dutLogo} alt="Logo" className="auth-logo" />
-                            <img src={logo2} alt="Logo 2" className="auth-logo" />
+                            <img src={dutLogo} alt="Logo Trường" className="auth-logo" />
+                            <img src={logo2} alt="Logo Phụ" className="auth-logo" />
                         </div>
                         <h2 className="auth-title">ĐĂNG NHẬP</h2>
                         <p className="auth-subtitle">Hệ thống Quản lý Lịch Tuần</p>
                     </div>
 
+                    {/* === PHẦN 1: FORM ĐĂNG NHẬP (ĐƯA LÊN TRÊN) === */}
                     <Form
                         name="login_form"
                         onFinish={onFinishLogin}
                         autoComplete="off"
                         layout="vertical"
                         size="large"
-                        onValuesChange={() => setLoginError(null)} // Nhập lại là tắt lỗi
+                        onValuesChange={() => setLoginError(null)} // Nhập lại thì tắt lỗi
                     >
                         <Form.Item
                             name="email"
                             rules={[{ required: true, message: 'Vui lòng nhập Email!' }]}
                             style={{marginBottom: 16}}
                         >
-                            <Input prefix={<MailOutlined className="site-form-item-icon" />} placeholder="Email" />
+                            <Input prefix={<MailOutlined className="site-form-item-icon" />} placeholder="Email (Tài khoản)" />
                         </Form.Item>
 
                         <Form.Item
@@ -162,12 +168,12 @@ const LoginPage = () => {
                         </Form.Item>
 
                         <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 16 }}>
-                            <span onClick={() => { setModalError(null); setIsForgotModalVisible(true); }} className="auth-link-hover" style={{ color: '#1890ff', cursor: 'pointer', fontSize: '13px' }}>
+                            <span onClick={handleForgotPassword} className="auth-link-hover" style={{ color: '#1890ff', cursor: 'pointer', fontSize: '13px' }}>
                                 Quên mật khẩu?
                             </span>
                         </div>
 
-                        {/* 👇👇 KHUNG HIỆN LỖI ĐỎ (NẰM NGAY TRÊN NÚT ĐĂNG NHẬP) 👇👇 */}
+                        {/* 👇 HIỂN THỊ LỖI ĐĂNG NHẬP TẠI ĐÂY 👇 */}
                         {loginError && (
                             <Alert
                                 message="Đăng nhập thất bại"
@@ -185,6 +191,7 @@ const LoginPage = () => {
                         </Form.Item>
                     </Form>
 
+                    {/* === PHẦN 2: GOOGLE (ĐƯA XUỐNG DƯỚI CHO KHOA HỌC) === */}
                     <div style={{ position: 'relative', marginBottom: 20 }}>
                         <Divider plain style={{ color: '#8c8c8c', fontSize: '13px' }}>Hoặc đăng nhập bằng</Divider>
                     </div>
@@ -192,7 +199,7 @@ const LoginPage = () => {
                     <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 24 }}>
                         <GoogleLogin
                             onSuccess={handleGoogleSuccess}
-                            onError={() => setLoginError('Đăng nhập Google thất bại')} // Hiện lỗi Google vào khung luôn
+                            onError={() => setLoginError('Đăng nhập Google thất bại')}
                             useOneTap={false}
                             theme="outline"
                             size="large"
@@ -208,10 +215,11 @@ const LoginPage = () => {
                     </div>
                 </div>
 
+                {/* MODAL QUÊN MẬT KHẨU */}
                 <Modal
-                    title="Quên mật khẩu?"
+                    title="Gửi yêu cầu Quên mật khẩu"
                     open={isForgotModalVisible}
-                    onCancel={() => { setIsForgotModalVisible(false); form.resetFields(); setModalError(null); }}
+                    onCancel={handleCloseForgotModal}
                     footer={null} 
                 >
                     <Form form={form} onFinish={handleSendResetRequest} layout="vertical">
@@ -220,6 +228,7 @@ const LoginPage = () => {
                         <Form.Item name="email" rules={[{ required: true }]}><Input prefix={<MailOutlined />} placeholder="Email" /></Form.Item>
                         <Form.Item name="fullName" rules={[{ required: true }]}><Input prefix={<UserOutlined />} placeholder="Họ và Tên" /></Form.Item>
                         <Button type="primary" htmlType="submit" loading={loading} block>Gửi yêu cầu</Button>
+                        <div style={{ textAlign: 'center', marginTop: 10 }}><a onClick={handleCloseForgotModal} style={{color: '#888', cursor:'pointer'}}>Hủy bỏ</a></div>
                     </Form>
                 </Modal>
             </div>
