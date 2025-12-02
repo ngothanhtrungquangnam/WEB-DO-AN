@@ -1,8 +1,8 @@
-import React, { useState, useEffect, useRef } from 'react'; // ✅ Đã thêm useRef
+import React, { useState, useEffect, useRef } from 'react'; 
 import { Table, Tag, message, Button, Select, Space, Typography, Switch, Row, Col, Modal, Tooltip, Popconfirm, Card, Upload } from 'antd'; 
 import { Link } from 'react-router-dom';
 import { UnorderedListOutlined, EyeOutlined, DeleteOutlined, CalendarOutlined, FileTextOutlined, TeamOutlined, UploadOutlined, FileExcelOutlined, PrinterOutlined } from '@ant-design/icons';
-import { useReactToPrint } from 'react-to-print'; // ✅ Thư viện in
+import { useReactToPrint } from 'react-to-print';
 import 'dayjs/locale/vi';
 import dayjs from 'dayjs';
 import isoWeek from 'dayjs/plugin/isoWeek'; 
@@ -19,10 +19,10 @@ const { Title, Text } = Typography;
 
 const BASE_API_URL = 'https://lich-tuan-api-bcg9d2aqfgbwbbcv.eastasia-01.azurewebsites.net/api';
 
-// --- HÀM TỰ ĐỘNG SINH DANH SÁCH TUẦN ---
+// --- HÀM TỰ ĐỘNG SINH DANH SÁCH TUẦN (GIỮ NGUYÊN) ---
 const generateWeeks = (year) => {
     const weeks = [];
-    let start = dayjs('2025-01-06'); // Bắt đầu từ thứ 2 đầu tiên của năm 2025
+    let start = dayjs('2025-01-06');
     for (let i = 1; i <= 52; i++) {
         const end = start.add(6, 'day');
         const labelStr = `Tuần ${i}: ${start.format('DD/MM/YYYY')} - ${end.format('DD/MM/YYYY')}`; 
@@ -36,6 +36,7 @@ const generateWeeks = (year) => {
     }
     return weeks;
 };
+
 const weekOptions = generateWeeks(2025);
 const statusOptions = [
   { label: 'Tất cả', value: 'Tất cả' },
@@ -48,6 +49,18 @@ const currentWeekObj = weekOptions.find(w =>
     (today.isAfter(dayjs(w.startDate).subtract(1, 'day')) && today.isBefore(dayjs(w.endDate).add(1, 'day')))
 );
 const defaultWeekValue = currentWeekObj ? currentWeekObj.value : weekOptions[0].value;
+
+// Helper function to get role
+const getCurrentUserRole = () => {
+    const userData = localStorage.getItem('userData');
+    if (userData) {
+        try {
+            return JSON.parse(userData).role.toLowerCase();
+        } catch (e) { return 'user'; }
+    }
+    return 'user';
+};
+
 
 const ScheduleDashboard = () => {
   // --- STATE ---
@@ -67,18 +80,19 @@ const ScheduleDashboard = () => {
   const [modalContent, setModalContent] = useState({ title: '', content: '' });
 
   // Lấy thông tin user
-  const userDataStr = localStorage.getItem('userData');
-  const currentUser = userDataStr ? JSON.parse(userDataStr) : null;
-  const isAdmin = currentUser?.role === 'admin' || currentUser?.role === 'manager';
+  const currentUserRole = getCurrentUserRole();
+  const isAdmin = currentUserRole === 'admin' || currentUserRole === 'manager';
+  const currentUserEmail = JSON.parse(localStorage.getItem('userData') || '{}').email;
 
-  // 👇 CẤU HÌNH IN PDF (QUAN TRỌNG) 👇
+  // Cấu hình In PDF
   const componentRef = useRef();
   const handlePrint = useReactToPrint({
-    contentRef: componentRef, 
+    content: () => componentRef.current,
     documentTitle: 'Lich-Cong-Tac-Tuan',
+    pageStyle: `@media print { .no-print { display: none; } }`
   });
 
-  // Load danh sách Chủ trì (Chỉ giữ 1 useEffect)
+  // Load danh sách Chủ trì
   useEffect(() => {
       const fetchHosts = () => {
           const token = localStorage.getItem('userToken');
@@ -91,25 +105,20 @@ const ScheduleDashboard = () => {
       fetchHosts();
   }, []);
 
-  // --- CÁC HÀM XỬ LÝ ---
+  // --- HÀM XỬ LÝ & FETCH (GIỮ NGUYÊN LOGIC) ---
   const handleClearFilters = () => {
       setSelectedHost(undefined);
-      setSelectedStatus('Tất cả');
-      setFilterMySchedule(false);
-      setFilterMyCreation(false);
-      setFilterUnit(false);
-      setFilterCanceled(false);
-      setSelectedWeek(defaultWeekValue); 
       setSelectedStatus('da_duyet');
+      setFilterMySchedule(false); setFilterMyCreation(false);
+      setFilterUnit(false); setFilterCanceled(false);
+      setSelectedWeek(defaultWeekValue); 
       message.info('Đã xóa bộ lọc.');
   };
 
   const handleShowAllList = () => {
-      setFilterMySchedule(false);
-      setFilterMyCreation(false);
-      setFilterUnit(false);
-      setFilterCanceled(false);
-      setSelectedStatus('Tất cả'); // Hiện cả chờ duyệt
+      setFilterMySchedule(false); setFilterMyCreation(false);
+      setFilterUnit(false); setFilterCanceled(false);
+      setSelectedStatus('Tất cả');
       message.success('Đang hiển thị tất cả.');
   };
 
@@ -122,7 +131,6 @@ const ScheduleDashboard = () => {
       .then(res => {
           if (res.ok) {
               message.success('Đã xóa lịch thành công!');
-              // Load lại dữ liệu
               fetchSchedules(selectedWeek, selectedHost, selectedStatus, {
                   isMySchedule: filterMySchedule, isMyCreation: filterMyCreation,
                   isFilterUnit: filterUnit, isFilterCanceled: filterCanceled,
@@ -140,7 +148,6 @@ const ScheduleDashboard = () => {
       setIsModalVisible(true);
   };
 
-  // Hàm load dữ liệu chính
   const fetchSchedules = (weekValue, hostValue, statusValue, filters) => {
     setLoading(true);
     const week = weekOptions.find(w => w.value === weekValue);
@@ -168,7 +175,6 @@ const ScheduleDashboard = () => {
     })
     .then(data => {
         let processedData = data.map(item => ({ ...item, key: item.id }));
-        // Logic gộp ô (rowSpan)
         for (let i = 0; i < processedData.length; i++) {
           if (processedData[i].rowSpan === 0) continue;
           let count = 1; 
@@ -198,88 +204,21 @@ const ScheduleDashboard = () => {
 
   const handleSwitchChange = (setter) => (checked) => setter(checked);
   
-  // --- HÀM IMPORT EXCEL ---
-  const handleImportExcel = (info) => {
-    const file = info.file.originFileObj || info.file;
-    if (!file) return;
-
-    // Helper: Đổi ngày Excel sang JS Date
-    const excelDateToJSDate = (serial) => {
-         if (!serial) return null;
-         if (typeof serial === 'string' && serial.includes('-')) return serial;
-         
-         const utc_days  = Math.floor(serial - 25569);
-         const utc_value = utc_days * 86400;                                 
-         const date_info = new Date(utc_value * 1000);
-         const year = date_info.getFullYear();
-         const month = String(date_info.getMonth() + 1).padStart(2, '0');
-         const day = String(date_info.getDate()).padStart(2, '0');
-         return `${year}-${month}-${day}`;
-    };
+  // Helper for HTML stripping
+  const stripText = (html) => {
+    const tmp = document.createElement("DIV");
+    tmp.innerHTML = html;
+    return tmp.textContent || tmp.innerText || "";
   };
 
-  // --- CẤU HÌNH CỘT (WEB) ---
-  const columns = [
-    { 
-        title: 'Thứ Ngày', dataIndex: 'ngay', key: 'thuNgay', width: 120, className: 'column-header-custom',
-        onCell: (record) => ({ rowSpan: record.rowSpan }), 
-        render: (text) => { 
-            const date = dayjs(text); 
-            const dayName = date.format('dddd'); 
-            const capitalizedDayName = dayName.charAt(0).toUpperCase() + dayName.slice(1); 
-            return (
-                <div style={{ fontWeight: 'bold', color: '#2c3e50' }}>
-                    <div style={{color: '#34495e'}}>{capitalizedDayName}</div>
-                    <div style={{color: '#2980b9'}}>{date.format('DD/MM/YYYY')}</div>
-                </div>
-            ); 
-        }, 
+  // --- 1. ĐỊNH NGHĨA CỘT FULL ---
+  const allColumns = [
+    { title: 'Thứ Ngày', dataIndex: 'ngay', key: 'thuNgay', width: 120, className: 'column-header-custom', onCell: (record) => ({ rowSpan: record.rowSpan }), render: (text) => { const date = dayjs(text); const dayName = date.format('dddd'); const capitalizedDayName = dayName.charAt(0).toUpperCase() + dayName.slice(1); return ( <div style={{ fontWeight: 'bold', color: '#2c3e50' }}> <div style={{color: '#34495e'}}>{capitalizedDayName}</div> <div style={{color: '#2980b9'}}>{date.format('DD/MM/YYYY')}</div> </div> ); } 
     },
-    { 
-        title: 'Thời Gian', key: 'thoiGian', width: 100, className: 'column-header-custom',
-        render: (record) => <b>{`${record.batDau.slice(0, 5)} - ${record.ketThuc.slice(0, 5)}`}</b> 
+    { title: 'Thời Gian', key: 'thoiGian', width: 100, className: 'column-header-custom', render: (record) => <b>{`${record.batDau.slice(0, 5)} - ${record.ketThuc.slice(0, 5)}`}</b> },
+    { title: 'Nội Dung', dataIndex: 'noiDung', key: 'noiDung', className: 'column-header-custom', render: (text, record) => { const isPhuLuc = record.thuocPhuLuc === 1 || record.thuocPhuLuc === true; const isBoSung = record.isBoSung === 1 || record.isBoSung === true; const plainText = stripText(text); return ( <div> {isBoSung && <Tag color="#ff4d4f" style={{marginBottom: 5, fontWeight: 'bold'}}>LỊCH BỔ SUNG</Tag>} {isPhuLuc ? ( <div><Tag color="geekblue" style={{ marginBottom: 5 }}>PHỤ LỤC</Tag><div style={{ fontStyle: 'italic', color: '#888', fontSize: '12px' }}>(Nội dung chi tiết xem tại phụ lục)</div><Button type="link" size="small" onClick={() => showDetailModal('Nội dung chi tiết', text)}>Xem chi tiết</Button></div> ) : plainText.length > 150 ? (<div><div style={{marginBottom: 5}}>{plainText.slice(0, 150)}...</div><a onClick={() => showDetailModal('Nội dung chi tiết', text)}>Xem thêm</a></div>) : (<div dangerouslySetInnerHTML={{ __html: text }} />)} </div> ); } 
     },
-    { 
-        title: 'Nội Dung', dataIndex: 'noiDung', key: 'noiDung', className: 'column-header-custom', 
-        render: (text, record) => {
-            const isPhuLuc = record.thuocPhuLuc === 1 || record.thuocPhuLuc === true;
-            const isBoSung = record.isBoSung === 1 || record.isBoSung === true;
-            const stripText = (html) => { const tmp = document.createElement("DIV"); tmp.innerHTML = html; return tmp.textContent || tmp.innerText || ""; };
-            const plainText = stripText(text);
-
-            return (
-                <div>
-                    {isBoSung && <Tag color="#ff4d4f" style={{marginBottom: 8, fontWeight: 'bold'}}>LỊCH BỔ SUNG</Tag>}
-                    {isPhuLuc ? (
-                        <div style={{ backgroundColor: '#f0f5ff', border: '1px dashed #adc6ff', padding: '8px', borderRadius: '6px' }}>
-                            <Space align="center"><FileTextOutlined style={{color: '#1890ff'}}/><Text strong style={{color: '#1d39c4', fontSize: '13px'}}>Nội dung trong phụ lục</Text></Space>
-                            <Button type="link" size="small" style={{ paddingLeft: 0, height: 'auto' }} onClick={() => showDetailModal('Nội dung chi tiết', text)}>Xem chi tiết &gt;&gt;</Button>
-                        </div>
-                    ) : plainText.length > 150 ? (
-                        <div><div style={{marginBottom: 5}}>{plainText.slice(0, 150)}...</div><a onClick={() => showDetailModal('Nội dung chi tiết', text)}>Xem thêm</a></div>
-                    ) : <div dangerouslySetInnerHTML={{ __html: text }} />}
-                </div>
-            );
-        } 
-    },
-    { 
-        title: 'Thành Phần', dataIndex: 'thanhPhan', key: 'thanhPhan', className: 'column-header-custom', width: 250,
-        render: (text, record) => {
-            const isPhuLuc = record.thuocPhuLuc === 1 || record.thuocPhuLuc === true;
-            const stripText = (html) => { const tmp = document.createElement("DIV"); tmp.innerHTML = html; return tmp.textContent || tmp.innerText || ""; };
-            
-            if (isPhuLuc) {
-                return (
-                    <div style={{ backgroundColor: '#f6ffed', border: '1px dashed #b7eb8f', padding: '8px', borderRadius: '6px' }}>
-                        <Space align="center"><TeamOutlined style={{color: '#52c41a'}}/><Text strong style={{color: '#389e0d', fontSize: '13px'}}>Danh sách đính kèm</Text></Space>
-                        <Button type="link" size="small" style={{ paddingLeft: 0, height: 'auto', color: '#52c41a' }} onClick={() => showDetailModal('Thành phần tham dự', text)}>Xem danh sách &gt;&gt;</Button>
-                    </div>
-                );
-            }
-            const plainText = stripText(text);
-            if (plainText.length > 100) return <div>{plainText.slice(0, 100)}... <br/><a onClick={() => showDetailModal('Thành phần tham dự', text)}>Xem hết</a></div>;
-            return <div dangerouslySetInnerHTML={{ __html: text }} />;
-        }
+    { title: 'Thành Phần', dataIndex: 'thanhPhan', key: 'thanhPhan', className: 'column-header-custom', width: 250, render: (text, record) => { const isPhuLuc = record.thuocPhuLuc === 1 || record.thuocPhuLuc === true; const plainText = stripText(text); if (isPhuLuc) { return <Button size="small" icon={<EyeOutlined />} onClick={() => showDetailModal('Thành phần tham dự', text)}>Xem danh sách</Button>; } if (plainText.length > 100) return <div>{plainText.slice(0, 100)}... <br/><a onClick={() => showDetailModal('Thành phần tham dự', text)}>Xem hết</a></div>; return <div dangerouslySetInnerHTML={{ __html: text }} />; } 
     },
     { title: 'Địa Điểm', dataIndex: 'diaDiem', key: 'diaDiem', width: 150, className: 'column-header-custom' },
     { title: 'Khoa / Đơn vị', dataIndex: 'donVi', key: 'donVi', width: 140, render: (text) => <span style={{ color: '#1890ff', fontWeight: 500 }}>{text}</span> },
@@ -289,11 +228,12 @@ const ScheduleDashboard = () => {
         title: 'ĐV duyệt', key: 'evDuyet', width: 80, align: 'center', className: 'column-header-custom',
         render: (record) => record.trangThai === 'da_duyet' ? <div style={{ width: 20, height: 20, backgroundColor: '#4CAF50', borderRadius: '50%', margin: 'auto' }}></div> : record.trangThai === 'cho_duyet' ? <div style={{ width: 20, height: 20, backgroundColor: '#ff9800', borderRadius: '50%', margin: 'auto' }}></div> : null
     },
+    // 👇 CỘT HÀNH ĐỘNG CŨ
     { 
         title: 'Hành Động', key: 'hanhDong', width: 120, align: 'center', className: 'column-header-custom',
         render: (_, record) => {
-            const isOwner = currentUser?.email === record.chuTriEmail;
-            const canDelete = isAdmin || (isOwner && record.trangThai !== 'da_duyet');
+            const isOwner = currentUserEmail === record.chuTriEmail;
+            const canDelete = isAdmin || (isOwner && record.trangThai !== 'da_duyet'); // Logic chặn xóa khi đã duyệt
             return (
                 <div style={{display: 'flex', flexDirection: 'column', gap: '5px', alignItems: 'center'}}>
                     <Tooltip title="Thêm vào Outlook"><Button size="small" style={{ backgroundColor: '#6c5ce7', color: '#fff', borderColor: '#6c5ce7', width: '100%' }} icon={<CalendarOutlined />} /></Tooltip>
@@ -303,15 +243,19 @@ const ScheduleDashboard = () => {
         }
     },
   ];
-
-  // 👇 TẠO CỘT CHO BẢNG IN (LỌC BỎ CỘT THỪA) 👇
-  const printColumns = columns.filter(col => col.key !== 'hanhDong' && col.key !== 'evDuyet');
+  
+  // --- 2. LỌC CỘT CUỐI CÙNG CHO HIỂN THỊ TRÊN WEB ---
   const displayColumns = allColumns.filter(col => {
+      // ✅ YÊU CẦU CỦA BẠN: BỎ CỘT HÀNH ĐỘNG NẾU KHÔNG PHẢI ADMIN/MANAGER
       if (col.key === 'hanhDong') {
-          return isAdmin; // Nếu không phải Admin -> Trả về false -> Ẩn cột
+          return isAdmin; // Chỉ giữ lại cột này nếu là Admin
       }
-      return true;
+      return true; // Giữ lại tất cả các cột khác
   });
+
+  // 👇 LỌC CỘT CHO BẢNG IN (Loại bỏ cột Hành động và Tài khoản Chủ trì/Duyệt)
+  const printColumns = allColumns.filter(col => col.key !== 'hanhDong' && col.key !== 'evDuyet' && col.key !== 'chuTriEmail');
+
 
   return (
     <div style={{ padding: '0px', backgroundColor: '#fff' }}>
@@ -320,11 +264,8 @@ const ScheduleDashboard = () => {
       <div style={{ backgroundColor: '#3498db', padding: '10px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20, borderRadius: '4px 4px 0 0' }}>
         <Space>
           <Link to="/dang-ky"><Button type="primary" style={{ backgroundColor: '#4CAF50', borderColor: '#4CAF50', fontWeight: 'bold' }}>Đăng ký lịch mới</Button></Link>
-          
           <Button style={{ backgroundColor: '#ffb142', color: '#fff', borderColor: '#ffb142', fontWeight: 'bold' }} onClick={handleClearFilters}>Xóa bộ lọc</Button>
-           {/* 👇 NÚT IN PDF 👇 */}
           <Button icon={<PrinterOutlined />} style={{ backgroundColor: '#e74c3c', color: '#fff', borderColor: '#e74c3c', fontWeight: 'bold' }} onClick={handlePrint}>Xuất PDF</Button>
-
         </Space>
       </div>
 
@@ -352,45 +293,50 @@ const ScheduleDashboard = () => {
           </Row>
 
           <Space style={{ marginBottom: 20 }} wrap align="center">
-             <Space><Switch size="small" checked={filterMySchedule} onChange={handleSwitchChange(setFilterMySchedule)} /><span style={{color: '#555'}}>Lịch của tôi</span></Space>
-             <Space><Switch size="small" checked={filterMyCreation} onChange={handleSwitchChange(setFilterMyCreation)} /><span style={{color: '#555'}}>Lịch của tôi tạo</span></Space>
-             <Space><Switch size="small" checked={filterUnit} onChange={handleSwitchChange(setFilterUnit)} /><span style={{color: '#555'}}>Thuộc đơn vị</span></Space>
-             <Space><Switch size="small" checked={filterCanceled} onChange={handleSwitchChange(setFilterCanceled)} /><span style={{color: '#555'}}>Đã hủy</span></Space>
-             <Button icon={<UnorderedListOutlined />} size="middle" onClick={handleShowAllList} style={{ backgroundColor: '#fff', color: '#d46b08', border: '1px solid #d46b08', fontWeight: '600', borderRadius: '20px', marginLeft: 15, marginBottom: 20 }}>Hiện tất cả</Button>
+            <Space><Switch size="small" checked={filterMySchedule} onChange={handleSwitchChange(setFilterMySchedule)} /><span style={{color: '#555'}}>Lịch của tôi</span></Space>
+            <Space><Switch size="small" checked={filterMyCreation} onChange={handleSwitchChange(setFilterMyCreation)} /><span style={{color: '#555'}}>Lịch của tôi tạo</span></Space>
+            <Space><Switch size="small" checked={filterUnit} onChange={handleSwitchChange(setFilterUnit)} /><span style={{color: '#555'}}>Thuộc đơn vị</span></Space>
+            <Space><Switch size="small" checked={filterCanceled} onChange={handleSwitchChange(setFilterCanceled)} /><span style={{color: '#555'}}>Đã hủy</span></Space>
+            <Button icon={<UnorderedListOutlined />} size="middle" onClick={handleShowAllList} style={{ backgroundColor: '#fff', color: '#d46b08', border: '1px solid #d46b08', fontWeight: '600', borderRadius: '20px', marginLeft: 15, marginBottom: 20 }}>Hiện tất cả</Button>
           </Space>
       </div>
 
-      {/* 3. BẢNG HIỂN THỊ TRÊN WEB (FULL CỘT) */}
+      {/* 3. BẢNG HIỂN THỊ TRÊN WEB (DÙNG displayColumns) */}
       <div style={{ padding: '0 20px 20px 20px' }}>
-         <Title level={3} style={{ textAlign: 'center', color: '#2c3e50', textTransform: 'uppercase', marginBottom: 20 }}>LỊCH CÔNG TÁC TUẦN</Title>
-         <style>{`.ant-table-thead > tr > th { background-color: #f0f2f5 !important; color: #333 !important; font-weight: bold !important; text-align: center !important; border-color: #d9d9d9 !important; } .ant-table-bordered .ant-table-cell { border-color: #d9d9d9 !important; } .ant-table-container { border-color: #d9d9d9 !important; }`}</style>
-         <Table columns={allColumns} dataSource={schedules} loading={loading} bordered size="middle" pagination={false} style={{ border: '1px solid #d9d9d9' }} />
+          <Title level={3} style={{ textAlign: 'center', color: '#2c3e50', textTransform: 'uppercase', marginBottom: 20 }}>LỊCH CÔNG TÁC TUẦN</Title>
+          <style>{`.ant-table-thead > tr > th { background-color: #f0f2f5 !important; color: #333 !important; font-weight: bold !important; text-align: center !important; border-color: #d9d9d9 !important; } .ant-table-bordered .ant-table-cell { border-color: #d9d9d9 !important; } .ant-table-container { border-color: #d9d9d9 !important; }`}</style>
+          
+          <Table 
+              columns={displayColumns} 
+              dataSource={schedules} 
+              loading={loading} 
+              bordered size="middle" 
+              pagination={false} 
+              style={{ border: '1px solid #d9d9d9' }} 
+          />
       </div>
 
       {/* 4. MODAL CHI TIẾT */}
       <Modal title={modalContent.title} open={isModalVisible} onOk={() => setIsModalVisible(false)} onCancel={() => setIsModalVisible(false)} footer={[<Button key="close" type="primary" onClick={() => setIsModalVisible(false)}>Đóng</Button>]} width={800}>
-         <div style={{ maxHeight: '60vh', overflowY: 'auto', paddingRight: '10px' }} dangerouslySetInnerHTML={{ __html: modalContent.content }} />
+        <div dangerouslySetInnerHTML={{ __html: modalContent.content }} />
       </Modal>
 
-      {/* === 5. KHU VỰC ẨN CHỈ DÙNG ĐỂ IN (CLEAN PRINT) === */}
+      {/* 5. KHU VỰC ẨN CHỈ DÙNG ĐỂ IN */}
       <div style={{ display: 'none' }}>
-         <div ref={componentRef} style={{ padding: '20px' }}>
-             <div style={{ textAlign: 'center', marginBottom: 20 }}>
-                 <h2 style={{ textTransform: 'uppercase', marginBottom: 5 }}>LỊCH CÔNG TÁC TUẦN</h2>
-                 <p style={{ fontSize: '14px' }}>{weekOptions.find(w => w.value === selectedWeek)?.label}</p>
-             </div>
-             
-             {/* Dùng bảng Antd với bộ cột ĐÃ LỌC (printColumns) */}
-             <Table 
-                columns={printColumns} 
-                dataSource={schedules} 
-                bordered 
-                size="small" 
-                pagination={false} 
-             />
-         </div>
-      </div>
-
+         <div ref={componentRef} style={{ padding: '20px' }}>
+             <div style={{ textAlign: 'center', marginBottom: 20 }}>
+                 <h2 style={{ textTransform: 'uppercase', marginBottom: 5 }}>LỊCH CÔNG TÁC TUẦN</h2>
+                 <p style={{ fontSize: '14px' }}>{weekOptions.find(w => w.value === selectedWeek)?.label}</p>
+             </div>
+             <Table 
+                columns={printColumns} 
+                dataSource={schedules} 
+                bordered 
+                size="small" 
+                pagination={false} 
+             />
+         </div>
+      </div>
     </div>
   );
 };
