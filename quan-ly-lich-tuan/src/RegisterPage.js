@@ -50,7 +50,7 @@ const RegisterPage = () => {
             });
     };
 
-  const handleGoogleSuccess = (credentialResponse) => {
+const handleGoogleSuccess = (credentialResponse) => {
         setLoading(true);
         axios.post(`${BASE_API_URL}/auth/google`, { token: credentialResponse.credential })
             .then(res => {

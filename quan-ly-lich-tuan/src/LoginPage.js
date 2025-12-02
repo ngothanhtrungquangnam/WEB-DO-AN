@@ -53,19 +53,26 @@ const LoginPage = () => {
         });
     };
 
-    // --- XỬ LÝ ĐĂNG NHẬP GOOGLE (MỚI THÊM) ---
-    const handleGoogleSuccess = (credentialResponse) => {
+ const handleGoogleSuccess = (credentialResponse) => {
         setLoading(true);
         axios.post(`${BASE_API_URL}/auth/google`, { token: credentialResponse.credential })
             .then(res => {
-                message.success('Đăng nhập Google thành công!');
+                message.success('Đăng nhập thành công!');
                 localStorage.setItem('userToken', res.data.token);
                 localStorage.setItem('userData', JSON.stringify(res.data.user));
-                navigate('/', { replace: true });
+                navigate('/');
             })
             .catch(err => {
-                console.error(err);
-                message.error('Lỗi đăng nhập Google: ' + (err.response?.data?.message || err.message));
+                // 👇 XỬ LÝ RIÊNG TRƯỜNG HỢP CHỜ DUYỆT (403)
+                if (err.response && err.response.status === 403) {
+                    Modal.warning({
+                        title: 'Thông báo',
+                        content: err.response.data.message, // "Đăng ký thành công! Vui lòng chờ duyệt..."
+                        okText: 'Đã hiểu'
+                    });
+                } else {
+                    message.error('Lỗi: ' + (err.response?.data?.message || err.message));
+                }
             })
             .finally(() => setLoading(false));
     };
