@@ -104,7 +104,7 @@ const LoginPage = () => {
 
     const handleRegisterRedirect = () => navigate('/dang-ky-tai-khoan');
 
-    // Xử lý Quên mật khẩu
+    // Xử lý Quên mật khẩu ở người dùng
     const handleSendResetRequest = (values) => {
         setLoading(true);
         setModalError(null); 
