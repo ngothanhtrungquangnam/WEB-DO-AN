@@ -1,9 +1,9 @@
 import React, { useState } from 'react';
-import { Form, Input, Button, message, Modal, Divider } from 'antd'; 
+import { Form, Input, Button, message, Modal, Alert, Divider } from 'antd'; 
 import { useNavigate, Link } from 'react-router-dom'; 
 import { LockOutlined, MailOutlined, UserOutlined } from '@ant-design/icons'; 
-import axios from 'axios'; 
 import { GoogleOAuthProvider, GoogleLogin } from '@react-oauth/google';
+import axios from 'axios'; 
 
 import './Auth.css'; 
 import dutLogo from './dut.jpg'; 
@@ -17,23 +17,27 @@ const LoginPage = () => {
     const [form] = Form.useForm();
     const [loading, setLoading] = useState(false);
     const [isForgotModalVisible, setIsForgotModalVisible] = useState(false);
+    
+    // 👇 STATE MỚI ĐỂ HIỆN LỖI ĐĂNG NHẬP TO RÕ
+    const [loginError, setLoginError] = useState(null);
     const [modalError, setModalError] = useState(null);
 
     const navigate = useNavigate();
 
-// --- 1. XỬ LÝ ĐĂNG NHẬP THƯỜNG ---
+    // --- 1. XỬ LÝ ĐĂNG NHẬP THƯỜNG ---
     const onFinishLogin = (values) => {
         setLoading(true);
+        setLoginError(null); // Xóa lỗi cũ trước khi đăng nhập lại
+
         fetch(API_URL_LOGIN, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(values),
         })
         .then(response => {
-            // 👇 XỬ LÝ LỖI TỪ SERVER TRẢ VỀ (401, 403, 404...)
             if (!response.ok) {
                 return response.json().then(err => { 
-                    // Ném lỗi ra để catch bắt được
+                    // Ném lỗi để xuống catch
                     throw new Error(err.message || 'Email hoặc mật khẩu không đúng.'); 
                 });
             }
@@ -46,9 +50,9 @@ const LoginPage = () => {
             navigate('/', { replace: true }); 
         })
         .catch(error => {
-            // 👇 HIỂN THỊ LỖI LÊN MÀN HÌNH
-            console.error("Login Error:", error);
-            message.error(error.message); // Hiện thông báo đỏ trên cùng
+            console.error("Lỗi đăng nhập:", error);
+            // 👇 SET LỖI VÀO STATE ĐỂ HIỆN KHUNG ĐỎ
+            setLoginError(error.message);
         })
         .finally(() => {
             setLoading(false);
@@ -58,6 +62,8 @@ const LoginPage = () => {
     // --- XỬ LÝ ĐĂNG NHẬP GOOGLE ---
     const handleGoogleSuccess = (credentialResponse) => {
         setLoading(true);
+        setLoginError(null); // Xóa lỗi cũ
+        
         axios.post(`${BASE_API_URL}/auth/google`, { token: credentialResponse.credential })
             .then(res => {
                 message.success('Đăng nhập Google thành công!');
@@ -66,21 +72,21 @@ const LoginPage = () => {
                 navigate('/', { replace: true });
             })
             .catch(err => {
-                // Nếu Pending (403) -> Hiện Modal
                 if (err.response && err.response.status === 403) {
                     Modal.warning({
                         title: 'Thông báo',
                         content: (
                             <div>
                                 <p>{err.response.data.message}</p>
-                                <p style={{fontSize: '13px', color: '#888'}}>Vui lòng đợi Quản trị viên kích hoạt tài khoản.</p>
+                                <p style={{fontSize: '13px', color: '#888'}}>Vui lòng đợi Quản trị viên kích hoạt tài khoản của bạn.</p>
                             </div>
                         ),
                         okText: 'Đã hiểu',
                         centered: true
                     });
                 } else {
-                    message.error('Lỗi: ' + (err.response?.data?.message || err.message));
+                    // Hiện lỗi Google vào khung đỏ luôn cho dễ thấy
+                    setLoginError('Lỗi đăng nhập Google: ' + (err.response?.data?.message || err.message));
                 }
             })
             .finally(() => setLoading(false));
@@ -124,13 +130,13 @@ const LoginPage = () => {
                         <p className="auth-subtitle">Hệ thống Quản lý Lịch Tuần</p>
                     </div>
 
-                    {/* === PHẦN 1: FORM ĐĂNG NHẬP (ĐƯA LÊN TRÊN) === */}
                     <Form
                         name="login_form"
                         onFinish={onFinishLogin}
                         autoComplete="off"
                         layout="vertical"
                         size="large"
+                        onValuesChange={() => setLoginError(null)} // Nhập lại là tắt lỗi
                     >
                         <Form.Item
                             name="email"
@@ -148,11 +154,22 @@ const LoginPage = () => {
                             <Input.Password prefix={<LockOutlined className="site-form-item-icon" />} placeholder="Mật khẩu" />
                         </Form.Item>
 
-                        <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 24 }}>
+                        <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 16 }}>
                             <span onClick={() => { setModalError(null); setIsForgotModalVisible(true); }} className="auth-link-hover" style={{ color: '#1890ff', cursor: 'pointer', fontSize: '13px' }}>
                                 Quên mật khẩu?
                             </span>
                         </div>
+
+                        {/* 👇👇 KHUNG HIỆN LỖI ĐỎ (NẰM NGAY TRÊN NÚT ĐĂNG NHẬP) 👇👇 */}
+                        {loginError && (
+                            <Alert
+                                message="Đăng nhập thất bại"
+                                description={loginError}
+                                type="error"
+                                showIcon
+                                style={{ marginBottom: 16 }}
+                            />
+                        )}
 
                         <Form.Item style={{ marginBottom: 16 }}>
                             <Button type="primary" htmlType="submit" loading={loading} block className="auth-button" style={{ height: '45px', fontWeight: '600', fontSize: '16px' }}>
@@ -161,7 +178,6 @@ const LoginPage = () => {
                         </Form.Item>
                     </Form>
 
-                    {/* === PHẦN 2: GOOGLE (ĐƯA XUỐNG DƯỚI) === */}
                     <div style={{ position: 'relative', marginBottom: 20 }}>
                         <Divider plain style={{ color: '#8c8c8c', fontSize: '13px' }}>Hoặc đăng nhập bằng</Divider>
                     </div>
@@ -169,7 +185,7 @@ const LoginPage = () => {
                     <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 24 }}>
                         <GoogleLogin
                             onSuccess={handleGoogleSuccess}
-                            onError={() => message.error('Thất bại')}
+                            onError={() => setLoginError('Đăng nhập Google thất bại')} // Hiện lỗi Google vào khung luôn
                             useOneTap={false}
                             theme="outline"
                             size="large"
@@ -185,7 +201,6 @@ const LoginPage = () => {
                     </div>
                 </div>
 
-                {/* Modal Quên Mật Khẩu */}
                 <Modal
                     title="Quên mật khẩu?"
                     open={isForgotModalVisible}
@@ -194,7 +209,7 @@ const LoginPage = () => {
                 >
                     <Form form={form} onFinish={handleSendResetRequest} layout="vertical">
                         <p style={{marginBottom: 15, fontSize: 13, color: '#666'}}>Nhập thông tin để gửi yêu cầu cấp lại mật khẩu.</p>
-                        {modalError && <div style={{color: 'red', marginBottom: 10}}>{modalError}</div>}
+                        {modalError && <Alert message={modalError} type="error" showIcon style={{ marginBottom: 15 }} />}
                         <Form.Item name="email" rules={[{ required: true }]}><Input prefix={<MailOutlined />} placeholder="Email" /></Form.Item>
                         <Form.Item name="fullName" rules={[{ required: true }]}><Input prefix={<UserOutlined />} placeholder="Họ và Tên" /></Form.Item>
                         <Button type="primary" htmlType="submit" loading={loading} block>Gửi yêu cầu</Button>
