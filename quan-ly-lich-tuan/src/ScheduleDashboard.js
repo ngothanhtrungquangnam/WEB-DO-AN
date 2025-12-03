@@ -87,7 +87,7 @@ const ScheduleDashboard = () => {
   // Cấu hình In PDF
   const componentRef = useRef();
   const handlePrint = useReactToPrint({
-    content: () => componentRef.current,
+   contentRef: componentRef,
     documentTitle: 'Lich-Cong-Tac-Tuan',
     pageStyle: `@media print { .no-print { display: none; } }`
   });
@@ -326,20 +326,21 @@ const ScheduleDashboard = () => {
 
       {/* 5. KHU VỰC ẨN CHỈ DÙNG ĐỂ IN */}
       <div style={{ display: 'none' }}>
-         <div ref={componentRef} style={{ padding: '20px' }}>
-             <div style={{ textAlign: 'center', marginBottom: 20 }}>
-                 <h2 style={{ textTransform: 'uppercase', marginBottom: 5 }}>LỊCH CÔNG TÁC TUẦN</h2>
-                 <p style={{ fontSize: '14px' }}>{weekOptions.find(w => w.value === selectedWeek)?.label}</p>
-             </div>
-             <Table 
-                columns={printColumns} 
-                dataSource={schedules} 
-                bordered 
-                size="small" 
-                pagination={false} 
-             />
-         </div>
-      </div>
+        <div ref={componentRef} style={{ padding: '20px' }}>
+             <div style={{ textAlign: 'center', marginBottom: 20 }}>
+                 <h2 style={{ textTransform: 'uppercase', marginBottom: 5 }}>LỊCH CÔNG TÁC TUẦN</h2>
+                 <p style={{ fontSize: '14px' }}>{weekOptions.find(w => w.value === selectedWeek)?.label}</p>
+             </div>
+             
+             <Table 
+                columns={printColumns} 
+                dataSource={schedules} 
+                bordered 
+                size="small" 
+                pagination={false} 
+             />
+         </div>
+      </div>
     </div>
   );
 };
