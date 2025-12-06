@@ -171,15 +171,8 @@ const ScheduleForm = () => {
       if (result.error) {
           message.error(result.error);
       } else {
-          message.success(result.message || 'Đăng ký thành công!');
-          form.resetFields(); 
-          
-          // Reset các state phụ
-          setIsRoomDisabled(true); 
-          setSelectedLocationName('');
-
-          if (editorNoiDungRef.current) editorNoiDungRef.current.setContent('');
-          if (editorThanhPhanRef.current) editorThanhPhanRef.current.setContent('');
+          alert('Đăng ký thành công');
+          window.location.reload();
       }
     })
     .catch((err) => {
