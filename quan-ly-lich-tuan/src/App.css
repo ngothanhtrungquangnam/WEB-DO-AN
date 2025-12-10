@@ -36,3 +36,48 @@
     transform: rotate(360deg);
   }
 } */
+/* App.css */
+
+/* Cách này sẽ ép toàn bộ ứng dụng React phải rộng ít nhất 1024px */
+/* Bất kể là đang mở trên điện thoại hay máy tính */
+
+#root {
+  min-width: 1024px; /* Độ rộng tối thiểu (bằng màn hình Laptop nhỏ) */
+  overflow-x: auto;  /* Tự động hiện thanh cuộn ngang nếu màn hình bé hơn 1024px */
+}
+
+/* Nếu trong file App.js của bạn có thẻ <div className="App"> bao ngoài cùng */
+/* Bạn cũng có thể dùng class .App thay cho #root */
+.App {
+  min-width: 1024px;
+  overflow-x: auto;
+}
+
+/* App.css */
+
+/* Chỉ áp dụng cuộn ngang cho các trang có Layout của Ant Design (Trang nội bộ) */
+/* Trang Login/Register thường không dùng .ant-layout bao ngoài cùng nên sẽ không bị ảnh hưởng */
+
+.ant-layout, main {
+  min-width: 1024px !important; /* Ép chiều rộng tối thiểu bằng màn hình Desktop */
+  overflow-x: auto !important;  /* Cho phép cuộn ngang */
+}
+
+/* Tùy chỉnh thanh cuộn cho đẹp (Optional) */
+::-webkit-scrollbar {
+  height: 8px; /* Chiều cao thanh cuộn ngang */
+  width: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #f1f1f1; 
+}
+
+::-webkit-scrollbar-thumb {
+  background: #888; 
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #555; 
+}
