@@ -62,164 +62,211 @@ const ScheduleForm = () => {
         message.error("Chỉ hỗ trợ file Excel, Word và PDF!");
     }
   };
+// --- A. HÀM TÌM ID CỦA NGƯỜI KHÁC TRONG EXCEL (Nếu cần) ---
+  const findHostIdByName = (nameInExcel) => {
+    if (!nameInExcel) return null;
+    const cleanName = String(nameInExcel).toLowerCase().trim();
+    const found = hostOptions.find(u => 
+        u.label.toLowerCase().includes(cleanName) || 
+        cleanName.includes(u.label.toLowerCase())
+    );
+    return found ? found.value : null; 
+  };
 
-  // --- 2. XỬ LÝ EXCEL (Logic thông minh bạn cung cấp) ---
+  // --- B. HÀM GỌI API ĐỂ LƯU 1 LỊCH (Dùng cho lưu hàng loạt) ---
+  const saveScheduleToApi = async (scheduleData) => {
+      const token = localStorage.getItem('userToken');
+      
+      const payload = {
+          ngay: scheduleData.ngay.format('YYYY-MM-DD'),
+          // Mảng thời gian [Bắt đầu, Kết thúc]
+          thoiGian: [
+              scheduleData.thoiGian[0].format('YYYY-MM-DD HH:mm'),
+              scheduleData.thoiGian[1].format('YYYY-MM-DD HH:mm')
+          ],
+          diaDiem: scheduleData.diaDiemFull, 
+          noiDung: scheduleData.noiDung,
+          thanhPhan: scheduleData.thanhPhan,
+          donVi: scheduleData.donVi,
+          chuTriEmail: scheduleData.chuTriId, // Gửi ID người chủ trì
+          chuTriTen: scheduleData.chuTriTen,
+          thuocPhuLuc: false,
+          isBoSung: true, 
+          guiMail: false
+      };
+
+      try {
+          const response = await fetch(`${BASE_API_URL}/schedules`, {
+              method: 'POST',
+              headers: { 
+                  'Content-Type': 'application/json',
+                  'Authorization': `Bearer ${token}` 
+              },
+              body: JSON.stringify(payload)
+          });
+          return response.ok;
+      } catch (error) {
+          console.error("Lỗi khi lưu:", error);
+          return false;
+      }
+  };
+// --- C. HÀM XỬ LÝ FILE EXCEL CHÍNH (Đã nâng cấp) ---
   const processExcelFile = (file) => {
     const reader = new FileReader();
-    reader.onload = (evt) => {
+    reader.onload = async (evt) => {
       try {
         const bstr = evt.target.result;
         const workbook = XLSX.read(bstr, { type: 'binary' });
-        const wsname = workbook.SheetNames[0];
-        const ws = workbook.Sheets[wsname];
-
-        // Đọc file raw
+        const ws = workbook.Sheets[workbook.SheetNames[0]];
         const rawData = XLSX.utils.sheet_to_json(ws, { header: 1, defval: null });
-        
+
         if (!rawData || rawData.length < 2) {
             message.error("File không có dữ liệu!");
             return;
         }
 
-        // Tìm dòng tiêu đề
-        let headerRowIndex = -1;
-        let mapping = {}; 
-
+        // 1. TÌM DÒNG TIÊU ĐỀ (Quét 50 dòng đầu)
+        let headerIndex = -1;
+        let map = {};
         for (let i = 0; i < 50; i++) {
             const row = rawData[i];
-            // Fix lỗi nếu row bị undefined hoặc null
-            if (!row) continue; 
-            const rowStr = row.map(c => String(c || "").toLowerCase().trim());
-            
-            if (rowStr.some(c => c.includes("nội dung") || c.includes("content"))) {
-                headerRowIndex = i;
-                rowStr.forEach((cell, index) => {
-                    if (cell.includes("ngày") || cell.includes("thứ")) mapping.date = index;
-                    if (cell.includes("thời gian") || cell.includes("giờ")) mapping.time = index;
-                    if (cell.includes("nội dung")) mapping.content = index;
-                    if (cell.includes("thành phần")) mapping.participants = index;
-                    if (cell.includes("địa điểm")) mapping.location = index;
-                    if (cell.includes("chủ trì")) mapping.host = index;
-                    if (cell.includes("đơn vị") || cell.includes("khoa")) mapping.dept = index;
+            if (!row) continue;
+            const strRow = row.map(c => String(c || "").toLowerCase());
+            if (strRow.some(c => c.includes("nội dung") || c.includes("content"))) {
+                headerIndex = i;
+                strRow.forEach((c, idx) => {
+                    if (c.includes("ngày") || c.includes("thứ")) map.date = idx;
+                    if (c.includes("giờ") || c.includes("thời gian")) map.time = idx;
+                    if (c.includes("nội dung")) map.content = idx;
+                    if (c.includes("thành phần")) map.part = idx;
+                    if (c.includes("địa điểm")) map.loc = idx;
+                    if (c.includes("chủ trì")) map.host = idx;
+                    if (c.includes("đơn vị") || c.includes("khoa")) map.dept = idx;
                 });
                 break;
             }
         }
 
-        if (headerRowIndex === -1) {
-            alert("Không tìm thấy dòng tiêu đề (Nội dung, Thời gian...). Vui lòng kiểm tra file!");
+        if (headerIndex === -1) {
+            message.error("Không tìm thấy tiêu đề (Nội dung, Thời gian...)!"); 
             return;
         }
 
-        const contentRows = rawData.slice(headerRowIndex + 1);
-        let lastDate = null;
-        let foundData = null;
+        // 2. LẤY THÔNG TIN NGƯỜI DÙNG HIỆN TẠI (Để lọc chính chủ)
+        // ⚠️ Đảm bảo bạn đã lưu object user vào localStorage khi đăng nhập
+        let currentUser = null;
+        try {
+           const userStr = localStorage.getItem('userData'); // ✅ Key này mới đúng // Kiểm tra key này trong F12 -> Application
+            if (userStr) currentUser = JSON.parse(userStr);
+        } catch (e) { console.error(e); }
 
+        // Lấy tên "Trung Ngo" và ID "19" từ localStorage
+        const myName = currentUser ? currentUser.hostName.trim() : ""; 
+        const myId = currentUser ? currentUser.id : null;
+
+        if (!myName) {
+            message.error("Lỗi: Không tìm thấy thông tin người dùng. Vui lòng đăng nhập lại!");
+            return;
+        }
+
+        const listToImport = [];
+        const contentRows = rawData.slice(headerIndex + 1);
+        let lastDate = null;
+
+        // 3. QUÉT DỮ LIỆU
         for (let row of contentRows) {
-            // Fix lỗi row trống
             if (!row || row.length === 0) continue;
 
-            // -- Xử lý ngày (ô gộp) --
-            let dateRaw = row[mapping.date];
-            if (dateRaw) {
-                lastDate = dateRaw;
-            } else {
-                dateRaw = lastDate;
-            }
+            // -- Xử lý Ngày (Fill-down) --
+            let dRaw = row[map.date];
+            if (dRaw) lastDate = dRaw;
+            else dRaw = lastDate;
 
-            if (!row[mapping.content]) continue;
+            if (!row[map.content]) continue; 
 
-            // -- Phân tích Ngày --
+            // === 🔥 LOGIC LỌC CHÍNH CHỦ ===
+            const hostInExcel = String(row[map.host] || "").trim();
+            // Kiểm tra tên trong Excel có chứa "Trung Ngo" không (không phân biệt hoa thường)
+            const isMe = hostInExcel.toLowerCase().includes(myName.toLowerCase());
+            
+            if (!isMe) continue; // Nếu không phải tên mình -> Bỏ qua
+
+            // -- Parse Ngày --
             let parsedDate = null;
-            if (dateRaw) {
-                if (typeof dateRaw === 'number') {
-                    parsedDate = dayjs(new Date(Math.round((dateRaw - 25569)*86400*1000)));
-                } else {
-                    const dateStr = String(dateRaw);
-                    const dateMatch = dateStr.match(/(\d{1,2})[\/\-](\d{1,2})([\/\-](\d{4}))?/);
-                    if (dateMatch) {
-                        const day = dateMatch[1];
-                        const month = dateMatch[2];
-                        const year = dateMatch[4] || new Date().getFullYear();
-                        parsedDate = dayjs(`${year}-${month}-${day}`, 'YYYY-M-D');
-                    }
-                }
+            if (typeof dRaw === 'number') parsedDate = dayjs(new Date(Math.round((dRaw - 25569)*86400*1000)));
+            else if (dRaw) {
+                const m = String(dRaw).match(/(\d{1,2})[\/\-](\d{1,2})([\/\-](\d{4}))?/);
+                if (m) parsedDate = dayjs(`${m[4]||new Date().getFullYear()}-${m[2]}-${m[1]}`);
             }
 
-            // -- Phân tích Giờ --
+            // === 🔥 LOGIC THỜI GIAN (Tự cộng 1h nếu thiếu kết thúc) ===
             let timeRange = null;
-            let timeRaw = row[mapping.time];
-            if (timeRaw) {
-                let timeStr = String(timeRaw).toLowerCase().replace(/g|h|giờ/g, ':').replace(/\s/g, ''); 
-                const parts = timeStr.split('-');
-                if (parts.length >= 1) {
-                    let start = dayjs(parts[0], 'HH:mm');
-                    let end = parts.length > 1 ? dayjs(parts[1], 'HH:mm') : start.add(1, 'hour');
-                    
-                    if (start.isValid()) {
-                        timeRange = [start, end.isValid() ? end : start.add(1, 'hour')];
-                    }
+            if (row[map.time]) {
+                let tStr = String(row[map.time]).toLowerCase().replace(/g|h|giờ/g, ':').replace(/\s/g, '');
+                const parts = tStr.split('-');
+                
+                let start = dayjs(parts[0], 'HH:mm');
+                let end;
+
+                if (parts.length > 1 && parts[1]) {
+                    end = dayjs(parts[1], 'HH:mm'); // Có giờ kết thúc
+                } else {
+                    end = start.add(1, 'hour'); // Không có -> Cộng 1 tiếng
+                }
+                
+                if (start.isValid()) {
+                    timeRange = [start, end.isValid() ? end : start.add(1, 'hour')];
                 }
             }
 
-            // -- Tìm ID Địa điểm --
-            let foundLocationId = undefined;
-            if (mapping.location !== undefined && row[mapping.location]) {
-                const excelLocName = String(row[mapping.location]).toLowerCase();
-                const found = locationOptions.find(opt => opt.label.toLowerCase().includes(excelLocName));
-                if (found) foundLocationId = found.value;
-            }
-
-            if (parsedDate) {
-                foundData = {
+            if (parsedDate && timeRange) {
+                // Lấy ID: Vì đã lọc là chính chủ, ta ưu tiên dùng ID của user đang đăng nhập (myId)
+                // Nếu cột chủ trì trống hoặc khác một chút, vẫn tính là của mình
+                listToImport.push({
                     ngay: parsedDate,
                     thoiGian: timeRange,
-                    noiDung: row[mapping.content],
-                    thanhPhan: row[mapping.participants],
-                    diaDiem: foundLocationId,
-                    donVi: mapping.dept !== undefined ? row[mapping.dept] : '',
-                    chuTri: mapping.host !== undefined ? row[mapping.host] : '',
-                    rawLocation: row[mapping.location] 
-                };
-                break; 
+                    noiDung: row[map.content],
+                    thanhPhan: row[map.part],
+                    diaDiemFull: String(row[map.loc] || ""), 
+                    donVi: map.dept ? row[map.dept] : '',
+                    chuTriTen: hostInExcel, 
+                    chuTriId: myId // Gán luôn ID 19 của bạn
+                });
             }
         }
 
-        // Fill dữ liệu
-        if (foundData) {
-            form.setFieldsValue({
-                ngay: foundData.ngay,
-                thoiGian: foundData.thoiGian,
-                donVi: foundData.donVi,
-                chuTriTen: foundData.chuTri,
-                diaDiem: foundData.diaDiem
-            });
+        // 4. XÁC NHẬN VÀ LƯU
+        if (listToImport.length === 0) {
+            message.warning(`Không tìm thấy lịch nào của "${myName}" trong file!`);
+            return;
+        }
 
-            let contentStr = String(foundData.noiDung || "");
-            if (!foundData.diaDiem && foundData.rawLocation) {
-                contentStr += `<br/><b>Địa điểm (từ file):</b> ${foundData.rawLocation}`;
+        const confirm = window.confirm(`Tìm thấy ${listToImport.length} lịch của "${myName}". Bạn muốn ĐĂNG KÝ TẤT CẢ ngay không?`);
+        
+        if (confirm) {
+            message.loading("Đang lưu dữ liệu...", 0);
+            let count = 0;
+            for (const item of listToImport) {
+                const success = await saveScheduleToApi(item);
+                if (success) count++;
             }
-
-            if (editorNoiDungRef.current) editorNoiDungRef.current.setContent(contentStr);
-            if (editorThanhPhanRef.current) editorThanhPhanRef.current.setContent(String(foundData.thanhPhan || ""));
+            message.destroy();
             
-            if (foundData.diaDiem) {
-                const opt = locationOptions.find(o => o.value === foundData.diaDiem);
-                if (opt) handleLocationChange(foundData.diaDiem, opt);
+            if (count > 0) {
+                message.success(`Đã lưu thành công ${count} lịch!`);
+                setTimeout(() => window.location.reload(), 1500);
+            } else {
+                message.error("Có lỗi khi lưu lịch.");
             }
-
-            message.success('Đã nhập dữ liệu Excel thành công!');
-        } else {
-            message.warning('Không tìm thấy dữ liệu hợp lệ trong Excel!');
         }
-      } catch (error) {
-        console.error(error);
-        message.error('Lỗi khi đọc file Excel.');
+
+      } catch (err) {
+        console.error(err);
+        message.error("Lỗi đọc file Excel.");
       }
     };
     reader.readAsBinaryString(file);
   };
-
   // --- 3. XỬ LÝ WORD (.docx) ---
   const processWordFile = (file) => {
     const reader = new FileReader();
