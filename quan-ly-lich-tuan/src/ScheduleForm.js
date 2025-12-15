@@ -110,8 +110,10 @@ const ScheduleForm = () => {
           return false;
       }
   };
-// --- C. HÀM XỬ LÝ FILE EXCEL CHÍNH (Đã nâng cấp) ---
+// --- C. HÀM XỬ LÝ EXCEL (CHẾ ĐỘ DEBUG - IN LOG CHI TIẾT) ---
   const processExcelFile = (file) => {
+    console.log("1. Bắt đầu đọc file:", file.name); // 👉 LOG 1
+
     const reader = new FileReader();
     reader.onload = async (evt) => {
       try {
@@ -120,12 +122,14 @@ const ScheduleForm = () => {
         const ws = workbook.Sheets[workbook.SheetNames[0]];
         const rawData = XLSX.utils.sheet_to_json(ws, { header: 1, defval: null });
 
+        console.log("2. Đã đọc dữ liệu thô, tổng số dòng:", rawData ? rawData.length : 0); // 👉 LOG 2
+
         if (!rawData || rawData.length < 2) {
             message.error("File không có dữ liệu!");
             return;
         }
 
-        // 1. TÌM DÒNG TIÊU ĐỀ (Quét 50 dòng đầu)
+        // --- TÌM TIÊU ĐỀ ---
         let headerIndex = -1;
         let map = {};
         for (let i = 0; i < 50; i++) {
@@ -134,6 +138,7 @@ const ScheduleForm = () => {
             const strRow = row.map(c => String(c || "").toLowerCase());
             if (strRow.some(c => c.includes("nội dung") || c.includes("content"))) {
                 headerIndex = i;
+                console.log("3. Tìm thấy tiêu đề ở dòng số:", i + 1); // 👉 LOG 3
                 strRow.forEach((c, idx) => {
                     if (c.includes("ngày") || c.includes("thứ")) map.date = idx;
                     if (c.includes("giờ") || c.includes("thời gian")) map.time = idx;
@@ -148,24 +153,26 @@ const ScheduleForm = () => {
         }
 
         if (headerIndex === -1) {
+            console.error("Lỗi: Không tìm thấy dòng tiêu đề trong 50 dòng đầu.");
             message.error("Không tìm thấy tiêu đề (Nội dung, Thời gian...)!"); 
             return;
         }
 
-        // 2. LẤY THÔNG TIN NGƯỜI DÙNG HIỆN TẠI (Để lọc chính chủ)
-        // ⚠️ Đảm bảo bạn đã lưu object user vào localStorage khi đăng nhập
+        // --- LẤY USER ---
         let currentUser = null;
         try {
-           const userStr = localStorage.getItem('userData'); // ✅ Key này mới đúng // Kiểm tra key này trong F12 -> Application
+            const userStr = localStorage.getItem('userData'); 
+            console.log("4. Dữ liệu userData trong LocalStorage:", userStr); // 👉 LOG 4
             if (userStr) currentUser = JSON.parse(userStr);
         } catch (e) { console.error(e); }
 
-        // Lấy tên "Trung Ngo" và ID "19" từ localStorage
         const myName = currentUser ? currentUser.hostName.trim() : ""; 
         const myId = currentUser ? currentUser.id : null;
 
+        console.log(`5. Tên hệ thống của bạn: "${myName}" - ID: ${myId}`); // 👉 LOG 5
+
         if (!myName) {
-            message.error("Lỗi: Không tìm thấy thông tin người dùng. Vui lòng đăng nhập lại!");
+            message.error("Không tìm thấy thông tin userData! Hãy đăng nhập lại.");
             return;
         }
 
@@ -173,25 +180,38 @@ const ScheduleForm = () => {
         const contentRows = rawData.slice(headerIndex + 1);
         let lastDate = null;
 
-        // 3. QUÉT DỮ LIỆU
-        for (let row of contentRows) {
+        // --- QUÉT DÒNG ---
+        console.log("6. Bắt đầu quét từng dòng dữ liệu..."); 
+
+        for (let i = 0; i < contentRows.length; i++) {
+            let row = contentRows[i];
             if (!row || row.length === 0) continue;
 
-            // -- Xử lý Ngày (Fill-down) --
+            // Fill-down Ngày
             let dRaw = row[map.date];
             if (dRaw) lastDate = dRaw;
             else dRaw = lastDate;
 
             if (!row[map.content]) continue; 
 
-            // === 🔥 LOGIC LỌC CHÍNH CHỦ ===
+            // LOGIC LỌC CHÍNH CHỦ
             const hostInExcel = String(row[map.host] || "").trim();
-            // Kiểm tra tên trong Excel có chứa "Trung Ngo" không (không phân biệt hoa thường)
+            
+            // 👇 IN RA ĐỂ KIỂM TRA SO SÁNH TÊN
             const isMe = hostInExcel.toLowerCase().includes(myName.toLowerCase());
             
-            if (!isMe) continue; // Nếu không phải tên mình -> Bỏ qua
+            // In log cho các dòng có nội dung để xem tại sao nó False
+            console.log(`--- Dòng ${headerIndex + 2 + i} ---`);
+            console.log(`   + Tên trong Excel: "${hostInExcel}"`);
+            console.log(`   + Tên hệ thống: "${myName}"`);
+            console.log(`   + Kết quả so sánh (Có chứa nhau không?): ${isMe}`);
 
-            // -- Parse Ngày --
+            if (!isMe) {
+                console.log("   -> BỎ QUA vì không khớp tên.");
+                continue; 
+            }
+
+            // Parse Ngày
             let parsedDate = null;
             if (typeof dRaw === 'number') parsedDate = dayjs(new Date(Math.round((dRaw - 25569)*86400*1000)));
             else if (dRaw) {
@@ -199,20 +219,13 @@ const ScheduleForm = () => {
                 if (m) parsedDate = dayjs(`${m[4]||new Date().getFullYear()}-${m[2]}-${m[1]}`);
             }
 
-            // === 🔥 LOGIC THỜI GIAN (Tự cộng 1h nếu thiếu kết thúc) ===
+            // Xử lý Giờ
             let timeRange = null;
             if (row[map.time]) {
                 let tStr = String(row[map.time]).toLowerCase().replace(/g|h|giờ/g, ':').replace(/\s/g, '');
                 const parts = tStr.split('-');
-                
                 let start = dayjs(parts[0], 'HH:mm');
-                let end;
-
-                if (parts.length > 1 && parts[1]) {
-                    end = dayjs(parts[1], 'HH:mm'); // Có giờ kết thúc
-                } else {
-                    end = start.add(1, 'hour'); // Không có -> Cộng 1 tiếng
-                }
+                let end = (parts.length > 1 && parts[1]) ? dayjs(parts[1], 'HH:mm') : start.add(1, 'hour');
                 
                 if (start.isValid()) {
                     timeRange = [start, end.isValid() ? end : start.add(1, 'hour')];
@@ -220,8 +233,7 @@ const ScheduleForm = () => {
             }
 
             if (parsedDate && timeRange) {
-                // Lấy ID: Vì đã lọc là chính chủ, ta ưu tiên dùng ID của user đang đăng nhập (myId)
-                // Nếu cột chủ trì trống hoặc khác một chút, vẫn tính là của mình
+                console.log("   -> ✅ THÊM VÀO DANH SÁCH!");
                 listToImport.push({
                     ngay: parsedDate,
                     thoiGian: timeRange,
@@ -230,21 +242,25 @@ const ScheduleForm = () => {
                     diaDiemFull: String(row[map.loc] || ""), 
                     donVi: map.dept ? row[map.dept] : '',
                     chuTriTen: hostInExcel, 
-                    chuTriId: myId // Gán luôn ID 19 của bạn
+                    chuTriId: myId 
                 });
+            } else {
+                console.log("   -> BỎ QUA vì lỗi ngày giờ.", {parsedDate, timeRange});
             }
         }
 
-        // 4. XÁC NHẬN VÀ LƯU
+        console.log("7. Tổng số lịch tìm được:", listToImport.length); // 👉 LOG 7
+
+        // --- KẾT THÚC ---
         if (listToImport.length === 0) {
-            message.warning(`Không tìm thấy lịch nào của "${myName}" trong file!`);
+            alert(`Đã quét xong nhưng KHÔNG tìm thấy lịch nào khớp!\n\nTên hệ thống: "${myName}"\n(Hãy xem tab Console F12 để biết chi tiết tại sao không khớp)`);
             return;
         }
 
-        const confirm = window.confirm(`Tìm thấy ${listToImport.length} lịch của "${myName}". Bạn muốn ĐĂNG KÝ TẤT CẢ ngay không?`);
+        const confirm = window.confirm(`Tìm thấy ${listToImport.length} lịch khớp với tên "${myName}". ĐĂNG KÝ NGAY?`);
         
         if (confirm) {
-            message.loading("Đang lưu dữ liệu...", 0);
+            message.loading("Đang lưu...", 0);
             let count = 0;
             for (const item of listToImport) {
                 const success = await saveScheduleToApi(item);
@@ -256,12 +272,12 @@ const ScheduleForm = () => {
                 message.success(`Đã lưu thành công ${count} lịch!`);
                 setTimeout(() => window.location.reload(), 1500);
             } else {
-                message.error("Có lỗi khi lưu lịch.");
+                message.error("Lỗi khi lưu.");
             }
         }
 
       } catch (err) {
-        console.error(err);
+        console.error("CÓ LỖI XẢY RA:", err); // 👉 LOG ERROR
         message.error("Lỗi đọc file Excel.");
       }
     };
