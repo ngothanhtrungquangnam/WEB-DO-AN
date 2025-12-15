@@ -500,7 +500,7 @@ return (
                   onClick={triggerFileInput} 
                   style={{ backgroundColor: '#107c41', color: 'white', borderColor: '#107c41' }}
               >
-                  📂 Nhập từ Excel
+                  Import file
               </Button>
           </div>
       </div>
