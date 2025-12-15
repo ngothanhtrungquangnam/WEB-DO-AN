@@ -73,13 +73,12 @@ const ScheduleForm = () => {
     return found ? found.value : null; 
   };
 
-  // --- B. HÀM GỌI API ĐỂ LƯU 1 LỊCH (Dùng cho lưu hàng loạt) ---
+// --- B. HÀM GỌI API (Đã sửa để log lỗi chi tiết) ---
   const saveScheduleToApi = async (scheduleData) => {
       const token = localStorage.getItem('userToken');
       
       const payload = {
           ngay: scheduleData.ngay.format('YYYY-MM-DD'),
-          // Mảng thời gian [Bắt đầu, Kết thúc]
           thoiGian: [
               scheduleData.thoiGian[0].format('YYYY-MM-DD HH:mm'),
               scheduleData.thoiGian[1].format('YYYY-MM-DD HH:mm')
@@ -88,14 +87,18 @@ const ScheduleForm = () => {
           noiDung: scheduleData.noiDung,
           thanhPhan: scheduleData.thanhPhan,
           donVi: scheduleData.donVi,
-          chuTriEmail: scheduleData.chuTriId, // Gửi ID người chủ trì
+          
+          // 👇 QUAN TRỌNG: Gửi Email thay vì ID
+          chuTriEmail: scheduleData.chuTriEmail, 
           chuTriTen: scheduleData.chuTriTen,
+          
           thuocPhuLuc: false,
           isBoSung: true, 
           guiMail: false
       };
 
       try {
+          console.log("Đang gửi API:", payload); // 👉 Debug Payload
           const response = await fetch(`${BASE_API_URL}/schedules`, {
               method: 'POST',
               headers: { 
@@ -104,16 +107,21 @@ const ScheduleForm = () => {
               },
               body: JSON.stringify(payload)
           });
-          return response.ok;
+          
+          if (!response.ok) {
+              // In lỗi ra console để biết tại sao server từ chối
+              const errText = await response.text();
+              console.error("LỖI API:", errText);
+              return false;
+          }
+          return true;
       } catch (error) {
-          console.error("Lỗi khi lưu:", error);
+          console.error("Lỗi mạng:", error);
           return false;
       }
   };
-// --- C. HÀM XỬ LÝ EXCEL (CHẾ ĐỘ DEBUG - IN LOG CHI TIẾT) ---
+// --- C. HÀM XỬ LÝ EXCEL CHÍNH (Đã sửa lấy Email) ---
   const processExcelFile = (file) => {
-    console.log("1. Bắt đầu đọc file:", file.name); // 👉 LOG 1
-
     const reader = new FileReader();
     reader.onload = async (evt) => {
       try {
@@ -122,14 +130,12 @@ const ScheduleForm = () => {
         const ws = workbook.Sheets[workbook.SheetNames[0]];
         const rawData = XLSX.utils.sheet_to_json(ws, { header: 1, defval: null });
 
-        console.log("2. Đã đọc dữ liệu thô, tổng số dòng:", rawData ? rawData.length : 0); // 👉 LOG 2
-
         if (!rawData || rawData.length < 2) {
             message.error("File không có dữ liệu!");
             return;
         }
 
-        // --- TÌM TIÊU ĐỀ ---
+        // 1. TÌM TIÊU ĐỀ
         let headerIndex = -1;
         let map = {};
         for (let i = 0; i < 50; i++) {
@@ -138,7 +144,6 @@ const ScheduleForm = () => {
             const strRow = row.map(c => String(c || "").toLowerCase());
             if (strRow.some(c => c.includes("nội dung") || c.includes("content"))) {
                 headerIndex = i;
-                console.log("3. Tìm thấy tiêu đề ở dòng số:", i + 1); // 👉 LOG 3
                 strRow.forEach((c, idx) => {
                     if (c.includes("ngày") || c.includes("thứ")) map.date = idx;
                     if (c.includes("giờ") || c.includes("thời gian")) map.time = idx;
@@ -153,26 +158,23 @@ const ScheduleForm = () => {
         }
 
         if (headerIndex === -1) {
-            console.error("Lỗi: Không tìm thấy dòng tiêu đề trong 50 dòng đầu.");
-            message.error("Không tìm thấy tiêu đề (Nội dung, Thời gian...)!"); 
+            message.error("Không tìm thấy tiêu đề!"); 
             return;
         }
 
-        // --- LẤY USER ---
+        // 2. LẤY THÔNG TIN USER (Lấy cả Email)
         let currentUser = null;
         try {
             const userStr = localStorage.getItem('userData'); 
-            console.log("4. Dữ liệu userData trong LocalStorage:", userStr); // 👉 LOG 4
             if (userStr) currentUser = JSON.parse(userStr);
         } catch (e) { console.error(e); }
 
         const myName = currentUser ? currentUser.hostName.trim() : ""; 
-        const myId = currentUser ? currentUser.id : null;
+        // 👇 SỬA: Lấy Email thay vì ID
+        const myEmail = currentUser ? currentUser.email : ""; 
 
-        console.log(`5. Tên hệ thống của bạn: "${myName}" - ID: ${myId}`); // 👉 LOG 5
-
-        if (!myName) {
-            message.error("Không tìm thấy thông tin userData! Hãy đăng nhập lại.");
+        if (!myName || !myEmail) {
+            message.error("Lỗi thông tin User (thiếu tên hoặc email). Hãy đăng nhập lại!");
             return;
         }
 
@@ -180,14 +182,10 @@ const ScheduleForm = () => {
         const contentRows = rawData.slice(headerIndex + 1);
         let lastDate = null;
 
-        // --- QUÉT DÒNG ---
-        console.log("6. Bắt đầu quét từng dòng dữ liệu..."); 
-
-        for (let i = 0; i < contentRows.length; i++) {
-            let row = contentRows[i];
+        // 3. QUÉT DỮ LIỆU
+        for (let row of contentRows) {
             if (!row || row.length === 0) continue;
 
-            // Fill-down Ngày
             let dRaw = row[map.date];
             if (dRaw) lastDate = dRaw;
             else dRaw = lastDate;
@@ -196,20 +194,9 @@ const ScheduleForm = () => {
 
             // LOGIC LỌC CHÍNH CHỦ
             const hostInExcel = String(row[map.host] || "").trim();
-            
-            // 👇 IN RA ĐỂ KIỂM TRA SO SÁNH TÊN
             const isMe = hostInExcel.toLowerCase().includes(myName.toLowerCase());
             
-            // In log cho các dòng có nội dung để xem tại sao nó False
-            console.log(`--- Dòng ${headerIndex + 2 + i} ---`);
-            console.log(`   + Tên trong Excel: "${hostInExcel}"`);
-            console.log(`   + Tên hệ thống: "${myName}"`);
-            console.log(`   + Kết quả so sánh (Có chứa nhau không?): ${isMe}`);
-
-            if (!isMe) {
-                console.log("   -> BỎ QUA vì không khớp tên.");
-                continue; 
-            }
+            if (!isMe) continue; 
 
             // Parse Ngày
             let parsedDate = null;
@@ -233,7 +220,6 @@ const ScheduleForm = () => {
             }
 
             if (parsedDate && timeRange) {
-                console.log("   -> ✅ THÊM VÀO DANH SÁCH!");
                 listToImport.push({
                     ngay: parsedDate,
                     thoiGian: timeRange,
@@ -242,22 +228,19 @@ const ScheduleForm = () => {
                     diaDiemFull: String(row[map.loc] || ""), 
                     donVi: map.dept ? row[map.dept] : '',
                     chuTriTen: hostInExcel, 
-                    chuTriId: myId 
+                    // 👇 Gán Email của bạn vào đây
+                    chuTriEmail: myEmail 
                 });
-            } else {
-                console.log("   -> BỎ QUA vì lỗi ngày giờ.", {parsedDate, timeRange});
             }
         }
 
-        console.log("7. Tổng số lịch tìm được:", listToImport.length); // 👉 LOG 7
-
-        // --- KẾT THÚC ---
+        // 4. XÁC NHẬN VÀ LƯU
         if (listToImport.length === 0) {
-            alert(`Đã quét xong nhưng KHÔNG tìm thấy lịch nào khớp!\n\nTên hệ thống: "${myName}"\n(Hãy xem tab Console F12 để biết chi tiết tại sao không khớp)`);
+            message.warning(`Không tìm thấy lịch nào của "${myName}"!`);
             return;
         }
 
-        const confirm = window.confirm(`Tìm thấy ${listToImport.length} lịch khớp với tên "${myName}". ĐĂNG KÝ NGAY?`);
+        const confirm = window.confirm(`Tìm thấy ${listToImport.length} lịch của "${myName}". ĐĂNG KÝ NGAY?`);
         
         if (confirm) {
             message.loading("Đang lưu...", 0);
@@ -270,14 +253,15 @@ const ScheduleForm = () => {
             
             if (count > 0) {
                 message.success(`Đã lưu thành công ${count} lịch!`);
+                // 👇 QUAN TRỌNG: Reload để xem lịch mới trong Danh sách
                 setTimeout(() => window.location.reload(), 1500);
             } else {
-                message.error("Lỗi khi lưu.");
+                message.error("Lỗi khi lưu! Hãy nhấn F12 -> Console để xem chi tiết.");
             }
         }
 
       } catch (err) {
-        console.error("CÓ LỖI XẢY RA:", err); // 👉 LOG ERROR
+        console.error(err);
         message.error("Lỗi đọc file Excel.");
       }
     };
