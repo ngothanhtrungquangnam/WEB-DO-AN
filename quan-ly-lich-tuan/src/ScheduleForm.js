@@ -36,6 +36,7 @@ const ScheduleForm = () => {
   // --- 👇 THÊM MỚI: XỬ LÝ IMPORT EXCEL ---
   const fileInputRef = useRef(null);
 
+// --- HÀM IMPORT EXCEL MỚI (ĐÃ NÂNG CẤP) ---
   const handleFileUpload = (e) => {
     const file = e.target.files[0];
     if (!file) return;
@@ -47,52 +48,81 @@ const ScheduleForm = () => {
         const workbook = XLSX.read(bstr, { type: 'binary' });
         const wsname = workbook.SheetNames[0];
         const ws = workbook.Sheets[wsname];
-        const data = XLSX.utils.sheet_to_json(ws);
+        
+        // Chuyển Excel thành JSON, gán giá trị mặc định là chuỗi rỗng để không lỗi
+        const data = XLSX.utils.sheet_to_json(ws, { defval: "" });
 
         if (data && data.length > 0) {
           const row = data[0]; // Lấy dòng đầu tiên
 
-          // 1. Xử lý Ngày (Excel có thể trả về chuỗi hoặc số)
-          // Yêu cầu file Excel cột Ngay định dạng: YYYY-MM-DD (VD: 2024-12-20)
-          const parsedDate = row['Ngay'] ? dayjs(row['Ngay']) : null;
-
-          // 2. Xử lý Giờ (RangePicker cần mảng 2 phần tử dayjs)
-          // Yêu cầu Excel: BatDau="07:00", KetThuc="11:00"
-          let timeRange = null;
-          if (row['BatDau'] && row['KetThuc']) {
-             timeRange = [
-               dayjs(row['BatDau'], 'HH:mm'),
-               dayjs(row['KetThuc'], 'HH:mm')
-             ];
+          // 1. Xử lý Ngày (Ngay)
+          let parsedDate = null;
+          if (row['Ngay']) {
+             parsedDate = dayjs(row['Ngay']); 
+             if (!parsedDate.isValid()) parsedDate = null;
           }
 
-          // 3. Điền dữ liệu vào Ant Design Form
+          // 2. Xử lý Giờ (BatDau - KetThuc)
+          let timeRange = null;
+          if (row['BatDau'] && row['KetThuc']) {
+             // Ép kiểu về chuỗi rồi format để tránh lỗi nếu Excel tự chuyển thành số
+             const startStr = String(row['BatDau']);
+             const endStr = String(row['KetThuc']);
+             const start = dayjs(startStr, 'HH:mm');
+             const end = dayjs(endStr, 'HH:mm');
+             if (start.isValid() && end.isValid()) {
+                 timeRange = [start, end];
+             }
+          }
+
+          // 3. Xử lý ĐỊA ĐIỂM (Tìm ID dựa trên Tên)
+          let foundLocationId = undefined;
+          let foundLocationOption = null;
+          if (row['DiaDiem']) {
+              // Tìm trong locationOptions xem có cái nào Tên giống trong Excel không
+              const excelLocName = String(row['DiaDiem']).trim().toLowerCase();
+              foundLocationOption = locationOptions.find(opt => 
+                  opt.label.toLowerCase().includes(excelLocName) || 
+                  opt.label.toLowerCase() === excelLocName
+              );
+              
+              if (foundLocationOption) {
+                  foundLocationId = foundLocationOption.value;
+              }
+          }
+
+          // 4. Điền dữ liệu vào Form
           form.setFieldsValue({
             ngay: parsedDate,
             thoiGian: timeRange,
-            donVi: row['DonVi'],      // Tên cột trong Excel: DonVi
-            chuTriTen: row['ChuTri'], // Tên cột trong Excel: ChuTri
-            // Lưu ý: Địa điểm và Số phòng cần khớp chính xác Value trong Select
-            // Nếu khó quá, người dùng có thể chọn tay phần địa điểm
+            donVi: row['KhoaDonVi'], // Điền thẳng tên Khoa (yêu cầu nhập đúng tên)
+            diaDiem: foundLocationId, // Điền ID đã tìm được
           });
 
-          // 4. Điền dữ liệu vào TinyMCE Editor (Nội dung & Thành phần)
-          if (row['NoiDung'] && editorNoiDungRef.current) {
-            editorNoiDungRef.current.setContent(row['NoiDung']);
-          }
-          if (row['ThanhPhan'] && editorThanhPhanRef.current) {
-            editorThanhPhanRef.current.setContent(row['ThanhPhan']);
+          // *Kích hoạt sự kiện chọn địa điểm* để load danh sách Phòng (nếu có)
+          if (foundLocationId && foundLocationOption) {
+              handleLocationChange(foundLocationId, foundLocationOption);
+              // Lưu tên khu vực để submit form
+              setSelectedLocationName(foundLocationOption.label);
           }
 
-          message.success('Đã nhập dữ liệu từ Excel thành công!');
+          // 5. Điền dữ liệu vào Editor (TinyMCE)
+          if (row['NoiDung'] && editorNoiDungRef.current) {
+            editorNoiDungRef.current.setContent(String(row['NoiDung']));
+          }
+          if (row['ThanhPhan'] && editorThanhPhanRef.current) {
+            editorThanhPhanRef.current.setContent(String(row['ThanhPhan']));
+          }
+
+          message.success('Đã nhập dữ liệu thành công!');
         }
       } catch (error) {
-        console.error(error);
-        message.error('Lỗi khi đọc file Excel. Vui lòng kiểm tra định dạng!');
+        console.error("Lỗi Import:", error);
+        message.error('Lỗi file Excel! Hãy kiểm tra định dạng ngày giờ.');
       }
     };
     reader.readAsBinaryString(file);
-    e.target.value = null; // Reset input
+    e.target.value = null; 
   };
 
   const triggerFileInput = () => {
