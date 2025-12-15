@@ -11,7 +11,8 @@ import {
   Row, Col // 👈 Import thêm để chia cột
 } from 'antd';
 import { Editor } from '@tinymce/tinymce-react';
-
+import * as XLSX from 'xlsx';
+import dayjs from 'dayjs';
 const { RangePicker } = TimePicker;
 
 // --- ĐỊNH NGHĨA API URL ---
@@ -32,6 +33,71 @@ const ScheduleForm = () => {
   const [isRoomDisabled, setIsRoomDisabled] = useState(true); // Mặc định khóa ô chọn phòng
   const [selectedLocationName, setSelectedLocationName] = useState(''); // Lưu tên Khu để gửi về server
 
+  // --- 👇 THÊM MỚI: XỬ LÝ IMPORT EXCEL ---
+  const fileInputRef = useRef(null);
+
+  const handleFileUpload = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (evt) => {
+      try {
+        const bstr = evt.target.result;
+        const workbook = XLSX.read(bstr, { type: 'binary' });
+        const wsname = workbook.SheetNames[0];
+        const ws = workbook.Sheets[wsname];
+        const data = XLSX.utils.sheet_to_json(ws);
+
+        if (data && data.length > 0) {
+          const row = data[0]; // Lấy dòng đầu tiên
+
+          // 1. Xử lý Ngày (Excel có thể trả về chuỗi hoặc số)
+          // Yêu cầu file Excel cột Ngay định dạng: YYYY-MM-DD (VD: 2024-12-20)
+          const parsedDate = row['Ngay'] ? dayjs(row['Ngay']) : null;
+
+          // 2. Xử lý Giờ (RangePicker cần mảng 2 phần tử dayjs)
+          // Yêu cầu Excel: BatDau="07:00", KetThuc="11:00"
+          let timeRange = null;
+          if (row['BatDau'] && row['KetThuc']) {
+             timeRange = [
+               dayjs(row['BatDau'], 'HH:mm'),
+               dayjs(row['KetThuc'], 'HH:mm')
+             ];
+          }
+
+          // 3. Điền dữ liệu vào Ant Design Form
+          form.setFieldsValue({
+            ngay: parsedDate,
+            thoiGian: timeRange,
+            donVi: row['DonVi'],      // Tên cột trong Excel: DonVi
+            chuTriTen: row['ChuTri'], // Tên cột trong Excel: ChuTri
+            // Lưu ý: Địa điểm và Số phòng cần khớp chính xác Value trong Select
+            // Nếu khó quá, người dùng có thể chọn tay phần địa điểm
+          });
+
+          // 4. Điền dữ liệu vào TinyMCE Editor (Nội dung & Thành phần)
+          if (row['NoiDung'] && editorNoiDungRef.current) {
+            editorNoiDungRef.current.setContent(row['NoiDung']);
+          }
+          if (row['ThanhPhan'] && editorThanhPhanRef.current) {
+            editorThanhPhanRef.current.setContent(row['ThanhPhan']);
+          }
+
+          message.success('Đã nhập dữ liệu từ Excel thành công!');
+        }
+      } catch (error) {
+        console.error(error);
+        message.error('Lỗi khi đọc file Excel. Vui lòng kiểm tra định dạng!');
+      }
+    };
+    reader.readAsBinaryString(file);
+    e.target.value = null; // Reset input
+  };
+
+  const triggerFileInput = () => {
+    fileInputRef.current.click();
+  };
   // --- LOGIC FETCH DỮ LIỆU TỪ API ---
   useEffect(() => {
     const token = localStorage.getItem('userToken'); 
@@ -193,9 +259,28 @@ const ScheduleForm = () => {
     }
   };
 
-  return (
+return (
     <div style={{ padding: '24px', backgroundColor: '#fff', maxWidth: '800px', margin: 'auto' }}>
-      <h2>Tạo Lịch Tuần</h2>
+      
+      {/* --- SỬA ĐOẠN TIÊU ĐỀ NÀY --- */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+          <h2 style={{ margin: 0 }}>Tạo Lịch Tuần</h2>
+          <div>
+              <input
+                  type="file"
+                  accept=".xlsx, .xls"
+                  ref={fileInputRef}
+                  style={{ display: 'none' }}
+                  onChange={handleFileUpload}
+              />
+              <Button 
+                  onClick={triggerFileInput} 
+                  style={{ backgroundColor: '#107c41', color: 'white', borderColor: '#107c41' }}
+              >
+                  📂 Nhập từ Excel
+              </Button>
+          </div>
+      </div>
       <Form
         form={form} 
         layout="vertical"
