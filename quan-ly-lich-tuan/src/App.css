@@ -1,83 +1,40 @@
-/* .App {
-  text-align: center;
-}
-
-.App-logo {
-  height: 40vmin;
-  pointer-events: none;
-}
-
-@media (prefers-reduced-motion: no-preference) {
-  .App-logo {
-    animation: App-logo-spin infinite 20s linear;
-  }
-}
-
-.App-header {
-  background-color: #282c34;
+/* 1. Thiết lập cho thẻ gốc ngoài cùng */
+html, body {
+  /* Ép chiều rộng tối thiểu cho toàn trang web */
+  min-width: 1024px; 
+  
+  /* Đảm bảo chiều cao luôn đủ bao phủ */
   min-height: 100vh;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  font-size: calc(10px + 2vmin);
-  color: white;
+  
+  /* Reset margin mặc định để không bị thừa khoảng trắng */
+  margin: 0;
+  padding: 0;
+
+  /* QUAN TRỌNG: Để trình duyệt tự xử lý thanh cuộn chính */
+  overflow-x: auto; 
+  overflow-y: auto;
 }
 
-.App-link {
-  color: #61dafb;
+/* 2. Ép các thẻ bao bọc (Wrapper) chỉ mở rộng theo, KHÔNG được có thanh cuộn riêng */
+#root, .App {
+  /* Chiều rộng/cao ăn theo body */
+  width: 100%;
+  height: 100%;
+  
+  /* CẤM các thẻ này tạo thanh cuộn riêng */
+  overflow: visible !important; 
 }
 
-@keyframes App-logo-spin {
-  from {
-    transform: rotate(0deg);
-  }
-  to {
-    transform: rotate(360deg);
-  }
-} */
-/* App.css */
+/* 3. Xử lý riêng cho Ant Design Layout */
+/* Ant Design thường mặc định set height: 100vh và overflow: auto, gây ra 2 thanh cuộn. */
+/* Ta cần ghi đè (override) nó. */
 
-/* Cách này sẽ ép toàn bộ ứng dụng React phải rộng ít nhất 1024px */
-/* Bất kể là đang mở trên điện thoại hay máy tính */
-
-#root {
-  min-width: 1024px; /* Độ rộng tối thiểu (bằng màn hình Laptop nhỏ) */
-  overflow-x: auto;  /* Tự động hiện thanh cuộn ngang nếu màn hình bé hơn 1024px */
+.ant-layout {
+  /* Thay vì fix cứng 100vh, hãy dùng min-height để nó giãn ra nếu nội dung dài */
+  min-height: 100vh !important;
+  
+  /* Quan trọng: Bỏ cuộn bên trong layout của Antd */
+  overflow: visible !important; 
+  height: auto !important;
 }
 
-/* Nếu trong file App.js của bạn có thẻ <div className="App"> bao ngoài cùng */
-/* Bạn cũng có thể dùng class .App thay cho #root */
-.App {
-  min-width: 1024px;
-  overflow-x: auto;
-}
-
-/* App.css */
-
-/* Chỉ áp dụng cuộn ngang cho các trang có Layout của Ant Design (Trang nội bộ) */
-/* Trang Login/Register thường không dùng .ant-layout bao ngoài cùng nên sẽ không bị ảnh hưởng */
-
-.ant-layout, main {
-  min-width: 1024px !important; /* Ép chiều rộng tối thiểu bằng màn hình Desktop */
-  overflow-x: auto !important;  /* Cho phép cuộn ngang */
-}
-
-/* Tùy chỉnh thanh cuộn cho đẹp (Optional) */
-::-webkit-scrollbar {
-  height: 8px; /* Chiều cao thanh cuộn ngang */
-  width: 8px;
-}
-
-::-webkit-scrollbar-track {
-  background: #f1f1f1; 
-}
-
-::-webkit-scrollbar-thumb {
-  background: #888; 
-  border-radius: 4px;
-}
-
-::-webkit-scrollbar-thumb:hover {
-  background: #555; 
-}
