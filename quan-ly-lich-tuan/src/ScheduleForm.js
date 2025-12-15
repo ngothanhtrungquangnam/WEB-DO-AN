@@ -85,7 +85,7 @@ const ScheduleForm = () => {
         let headerRowIndex = -1;
         let mapping = {}; 
 
-        for (let i = 0; i < 5; i++) {
+        for (let i = 0; i < 50; i++) {
             const row = rawData[i];
             // Fix lỗi nếu row bị undefined hoặc null
             if (!row) continue; 
