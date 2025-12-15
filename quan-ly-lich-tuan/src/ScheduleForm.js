@@ -13,6 +13,11 @@ import {
 import { Editor } from '@tinymce/tinymce-react';
 import * as XLSX from 'xlsx';
 import dayjs from 'dayjs';
+import mammoth from 'mammoth';
+import * as pdfjsLib from 'pdfjs-dist/build/pdf';
+
+// Cấu hình worker cho PDF (Bắt buộc để đọc được file)
+pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
 const { RangePicker } = TimePicker;
 
 // --- ĐỊNH NGHĨA API URL ---
@@ -37,10 +42,29 @@ const ScheduleForm = () => {
   const fileInputRef = useRef(null);
 
 // --- HÀM IMPORT EXCEL MỚI (ĐÃ NÂNG CẤP) ---
+// --- 1. HÀM CHÍNH: PHÂN LOẠI FILE ---
   const handleFileUpload = (e) => {
     const file = e.target.files[0];
     if (!file) return;
 
+    const fileType = file.name.split('.').pop().toLowerCase();
+
+    // Reset input để có thể chọn lại file khác
+    e.target.value = null;
+
+    if (fileType === 'xlsx' || fileType === 'xls') {
+        processExcelFile(file);
+    } else if (fileType === 'docx') {
+        processWordFile(file);
+    } else if (fileType === 'pdf') {
+        processPdfFile(file);
+    } else {
+        message.error("Chỉ hỗ trợ file Excel, Word và PDF!");
+    }
+  };
+
+  // --- 2. XỬ LÝ EXCEL (Logic thông minh bạn cung cấp) ---
+  const processExcelFile = (file) => {
     const reader = new FileReader();
     reader.onload = (evt) => {
       try {
@@ -48,81 +72,203 @@ const ScheduleForm = () => {
         const workbook = XLSX.read(bstr, { type: 'binary' });
         const wsname = workbook.SheetNames[0];
         const ws = workbook.Sheets[wsname];
+
+        // Đọc file raw
+        const rawData = XLSX.utils.sheet_to_json(ws, { header: 1, defval: null });
         
-        // Chuyển Excel thành JSON, gán giá trị mặc định là chuỗi rỗng để không lỗi
-        const data = XLSX.utils.sheet_to_json(ws, { defval: "" });
+        if (!rawData || rawData.length < 2) {
+            message.error("File không có dữ liệu!");
+            return;
+        }
 
-        if (data && data.length > 0) {
-          const row = data[0]; // Lấy dòng đầu tiên
+        // Tìm dòng tiêu đề
+        let headerRowIndex = -1;
+        let mapping = {}; 
 
-          // 1. Xử lý Ngày (Ngay)
-          let parsedDate = null;
-          if (row['Ngay']) {
-             parsedDate = dayjs(row['Ngay']); 
-             if (!parsedDate.isValid()) parsedDate = null;
-          }
+        for (let i = 0; i < 5; i++) {
+            const row = rawData[i];
+            // Fix lỗi nếu row bị undefined hoặc null
+            if (!row) continue; 
+            const rowStr = row.map(c => String(c || "").toLowerCase().trim());
+            
+            if (rowStr.some(c => c.includes("nội dung") || c.includes("content"))) {
+                headerRowIndex = i;
+                rowStr.forEach((cell, index) => {
+                    if (cell.includes("ngày") || cell.includes("thứ")) mapping.date = index;
+                    if (cell.includes("thời gian") || cell.includes("giờ")) mapping.time = index;
+                    if (cell.includes("nội dung")) mapping.content = index;
+                    if (cell.includes("thành phần")) mapping.participants = index;
+                    if (cell.includes("địa điểm")) mapping.location = index;
+                    if (cell.includes("chủ trì")) mapping.host = index;
+                    if (cell.includes("đơn vị") || cell.includes("khoa")) mapping.dept = index;
+                });
+                break;
+            }
+        }
 
-          // 2. Xử lý Giờ (BatDau - KetThuc)
-          let timeRange = null;
-          if (row['BatDau'] && row['KetThuc']) {
-             // Ép kiểu về chuỗi rồi format để tránh lỗi nếu Excel tự chuyển thành số
-             const startStr = String(row['BatDau']);
-             const endStr = String(row['KetThuc']);
-             const start = dayjs(startStr, 'HH:mm');
-             const end = dayjs(endStr, 'HH:mm');
-             if (start.isValid() && end.isValid()) {
-                 timeRange = [start, end];
-             }
-          }
+        if (headerRowIndex === -1) {
+            alert("Không tìm thấy dòng tiêu đề (Nội dung, Thời gian...). Vui lòng kiểm tra file!");
+            return;
+        }
 
-          // 3. Xử lý ĐỊA ĐIỂM (Tìm ID dựa trên Tên)
-          let foundLocationId = undefined;
-          let foundLocationOption = null;
-          if (row['DiaDiem']) {
-              // Tìm trong locationOptions xem có cái nào Tên giống trong Excel không
-              const excelLocName = String(row['DiaDiem']).trim().toLowerCase();
-              foundLocationOption = locationOptions.find(opt => 
-                  opt.label.toLowerCase().includes(excelLocName) || 
-                  opt.label.toLowerCase() === excelLocName
-              );
-              
-              if (foundLocationOption) {
-                  foundLocationId = foundLocationOption.value;
-              }
-          }
+        const contentRows = rawData.slice(headerRowIndex + 1);
+        let lastDate = null;
+        let foundData = null;
 
-          // 4. Điền dữ liệu vào Form
-          form.setFieldsValue({
-            ngay: parsedDate,
-            thoiGian: timeRange,
-            donVi: row['KhoaDonVi'], // Điền thẳng tên Khoa (yêu cầu nhập đúng tên)
-            diaDiem: foundLocationId, // Điền ID đã tìm được
-          });
+        for (let row of contentRows) {
+            // Fix lỗi row trống
+            if (!row || row.length === 0) continue;
 
-          // *Kích hoạt sự kiện chọn địa điểm* để load danh sách Phòng (nếu có)
-          if (foundLocationId && foundLocationOption) {
-              handleLocationChange(foundLocationId, foundLocationOption);
-              // Lưu tên khu vực để submit form
-              setSelectedLocationName(foundLocationOption.label);
-          }
+            // -- Xử lý ngày (ô gộp) --
+            let dateRaw = row[mapping.date];
+            if (dateRaw) {
+                lastDate = dateRaw;
+            } else {
+                dateRaw = lastDate;
+            }
 
-          // 5. Điền dữ liệu vào Editor (TinyMCE)
-          if (row['NoiDung'] && editorNoiDungRef.current) {
-            editorNoiDungRef.current.setContent(String(row['NoiDung']));
-          }
-          if (row['ThanhPhan'] && editorThanhPhanRef.current) {
-            editorThanhPhanRef.current.setContent(String(row['ThanhPhan']));
-          }
+            if (!row[mapping.content]) continue;
 
-          message.success('Đã nhập dữ liệu thành công!');
+            // -- Phân tích Ngày --
+            let parsedDate = null;
+            if (dateRaw) {
+                if (typeof dateRaw === 'number') {
+                    parsedDate = dayjs(new Date(Math.round((dateRaw - 25569)*86400*1000)));
+                } else {
+                    const dateStr = String(dateRaw);
+                    const dateMatch = dateStr.match(/(\d{1,2})[\/\-](\d{1,2})([\/\-](\d{4}))?/);
+                    if (dateMatch) {
+                        const day = dateMatch[1];
+                        const month = dateMatch[2];
+                        const year = dateMatch[4] || new Date().getFullYear();
+                        parsedDate = dayjs(`${year}-${month}-${day}`, 'YYYY-M-D');
+                    }
+                }
+            }
+
+            // -- Phân tích Giờ --
+            let timeRange = null;
+            let timeRaw = row[mapping.time];
+            if (timeRaw) {
+                let timeStr = String(timeRaw).toLowerCase().replace(/g|h|giờ/g, ':').replace(/\s/g, ''); 
+                const parts = timeStr.split('-');
+                if (parts.length >= 1) {
+                    let start = dayjs(parts[0], 'HH:mm');
+                    let end = parts.length > 1 ? dayjs(parts[1], 'HH:mm') : start.add(1, 'hour');
+                    
+                    if (start.isValid()) {
+                        timeRange = [start, end.isValid() ? end : start.add(1, 'hour')];
+                    }
+                }
+            }
+
+            // -- Tìm ID Địa điểm --
+            let foundLocationId = undefined;
+            if (mapping.location !== undefined && row[mapping.location]) {
+                const excelLocName = String(row[mapping.location]).toLowerCase();
+                const found = locationOptions.find(opt => opt.label.toLowerCase().includes(excelLocName));
+                if (found) foundLocationId = found.value;
+            }
+
+            if (parsedDate) {
+                foundData = {
+                    ngay: parsedDate,
+                    thoiGian: timeRange,
+                    noiDung: row[mapping.content],
+                    thanhPhan: row[mapping.participants],
+                    diaDiem: foundLocationId,
+                    donVi: mapping.dept !== undefined ? row[mapping.dept] : '',
+                    chuTri: mapping.host !== undefined ? row[mapping.host] : '',
+                    rawLocation: row[mapping.location] 
+                };
+                break; 
+            }
+        }
+
+        // Fill dữ liệu
+        if (foundData) {
+            form.setFieldsValue({
+                ngay: foundData.ngay,
+                thoiGian: foundData.thoiGian,
+                donVi: foundData.donVi,
+                chuTriTen: foundData.chuTri,
+                diaDiem: foundData.diaDiem
+            });
+
+            let contentStr = String(foundData.noiDung || "");
+            if (!foundData.diaDiem && foundData.rawLocation) {
+                contentStr += `<br/><b>Địa điểm (từ file):</b> ${foundData.rawLocation}`;
+            }
+
+            if (editorNoiDungRef.current) editorNoiDungRef.current.setContent(contentStr);
+            if (editorThanhPhanRef.current) editorThanhPhanRef.current.setContent(String(foundData.thanhPhan || ""));
+            
+            if (foundData.diaDiem) {
+                const opt = locationOptions.find(o => o.value === foundData.diaDiem);
+                if (opt) handleLocationChange(foundData.diaDiem, opt);
+            }
+
+            message.success('Đã nhập dữ liệu Excel thành công!');
+        } else {
+            message.warning('Không tìm thấy dữ liệu hợp lệ trong Excel!');
         }
       } catch (error) {
-        console.error("Lỗi Import:", error);
-        message.error('Lỗi file Excel! Hãy kiểm tra định dạng ngày giờ.');
+        console.error(error);
+        message.error('Lỗi khi đọc file Excel.');
       }
     };
     reader.readAsBinaryString(file);
-    e.target.value = null; 
+  };
+
+  // --- 3. XỬ LÝ WORD (.docx) ---
+  const processWordFile = (file) => {
+    const reader = new FileReader();
+    reader.onload = (evt) => {
+        const arrayBuffer = evt.target.result;
+        mammoth.extractRawText({ arrayBuffer: arrayBuffer })
+            .then((result) => {
+                const text = result.value; 
+                if (editorNoiDungRef.current) {
+                    editorNoiDungRef.current.setContent(text.replace(/\n/g, '<br/>'));
+                }
+                message.success("Đã lấy nội dung từ file Word!");
+                message.info("Với Word, bạn cần tự chọn Ngày và Giờ.");
+            })
+            .catch((err) => {
+                console.error(err);
+                message.error("Lỗi đọc file Word.");
+            });
+    };
+    reader.readAsArrayBuffer(file);
+  };
+
+  // --- 4. XỬ LÝ PDF (.pdf) ---
+  const processPdfFile = (file) => {
+    const reader = new FileReader();
+    reader.onload = async (evt) => {
+        const typedarray = new Uint8Array(evt.target.result);
+        try {
+            const pdf = await pdfjsLib.getDocument(typedarray).promise;
+            let fullText = "";
+
+            for (let i = 1; i <= pdf.numPages; i++) {
+                const page = await pdf.getPage(i);
+                const textContent = await page.getTextContent();
+                const pageText = textContent.items.map(item => item.str).join(' ');
+                fullText += pageText + "<br/><br/>";
+            }
+
+            if (editorNoiDungRef.current) {
+                editorNoiDungRef.current.setContent(fullText);
+            }
+            message.success("Đã lấy nội dung từ file PDF!");
+            message.info("Với PDF, bạn cần tự chọn Ngày và Giờ.");
+        } catch (err) {
+            console.error(err);
+            message.error("Lỗi đọc file PDF.");
+        }
+    };
+    reader.readAsArrayBuffer(file);
   };
 
   const triggerFileInput = () => {
@@ -298,7 +444,7 @@ return (
           <div>
               <input
                   type="file"
-                  accept=".xlsx, .xls"
+                 accept=".xlsx, .xls, .docx, .pdf"
                   ref={fileInputRef}
                   style={{ display: 'none' }}
                   onChange={handleFileUpload}
