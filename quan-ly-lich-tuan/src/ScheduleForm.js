@@ -93,7 +93,7 @@ const ScheduleForm = () => {
           chuTriTen: scheduleData.chuTriTen,
           
           thuocPhuLuc: false,
-          isBoSung: true, 
+          isBoSung: false, 
           guiMail: false
       };
 
