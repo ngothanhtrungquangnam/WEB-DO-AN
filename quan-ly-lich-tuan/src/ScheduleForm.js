@@ -15,7 +15,8 @@ import * as XLSX from 'xlsx';
 import dayjs from 'dayjs';
 import mammoth from 'mammoth';
 import * as pdfjsLib from 'pdfjs-dist/build/pdf';
-
+// Import thêm icon CloudUpload từ thư viện icon của Ant Design
+import { CloudUploadOutlined } from '@ant-design/icons';
 // Cấu hình worker cho PDF (Bắt buộc để đọc được file)
 pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
 const { RangePicker } = TimePicker;
@@ -497,11 +498,40 @@ return (
                   onChange={handleFileUpload}
               />
               <Button 
-                  onClick={triggerFileInput} 
-                  style={{ backgroundColor: '#107c41', color: 'white', borderColor: '#107c41' }}
-              >
-                  Import file
-              </Button>
+    onClick={triggerFileInput} 
+    style={{ 
+        background: 'linear-gradient(90deg, #107c41 0%, #34a853 100%)', // Màu xanh chuyển sắc (Gradient)
+        color: 'white', 
+        border: 'none',
+        fontWeight: '700',          // Chữ đậm
+        fontSize: '15px',           // Cỡ chữ vừa vặn
+        height: '42px',             // Chiều cao nút
+        padding: '0 20px',          // Độ rộng nút
+        borderRadius: '6px',        // Bo góc nhẹ hiện đại
+        boxShadow: '0 4px 12px rgba(16, 124, 65, 0.3)', // Đổ bóng xanh nhẹ
+        display: 'flex',
+        alignItems: 'center',
+        gap: '10px',                // Khoảng cách giữa Icon và Chữ
+        cursor: 'pointer',
+        transition: 'all 0.3s ease'
+    }}
+    // Hiệu ứng khi di chuột vào (Nổi lên + Đổi màu nhẹ)
+    onMouseOver={(e) => {
+        e.currentTarget.style.transform = 'translateY(-2px)';
+        e.currentTarget.style.boxShadow = '0 6px 16px rgba(16, 124, 65, 0.5)';
+    }}
+    // Hiệu ứng khi di chuột ra
+    onMouseOut={(e) => {
+        e.currentTarget.style.transform = 'translateY(0)';
+        e.currentTarget.style.boxShadow = '0 4px 12px rgba(16, 124, 65, 0.3)';
+    }}
+>
+    {/* Icon đám mây upload */}
+    <CloudUploadOutlined style={{ fontSize: '18px', fontWeight: 'bold' }} />
+    
+    {/* Tên nút mới */}
+    TẢI TÀI LIỆU
+</Button>
           </div>
       </div>
       <Form
