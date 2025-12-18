@@ -363,6 +363,10 @@ const AdminSchedulePage = () => {
             loading={loading}
             bordered
             size="middle"
+            scroll={{ 
+                x: 1600,                // Tổng chiều rộng các cột (để cuộn ngang trong bảng)
+                y: 'calc(100vh - 230px)' // Chiều cao màn hình trừ đi header để cuộn dọc
+            }}
             pagination={{ pageSize: 10 }} 
             locale={{ emptyText: viewAllMode ? 'Không có lịch nào trong tuần này' : 'Hiện không có lịch nào chờ duyệt 🎉' }}
             rowClassName={(record) => record.trangThai === 'cho_duyet' ? 'highlight-row-pending' : ''}
