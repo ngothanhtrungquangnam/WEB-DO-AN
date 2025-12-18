@@ -189,9 +189,7 @@ app.post('/api/auth/google', async (req, res) => {
 
         // === TRƯỜNG HỢP 2: ĐÃ CÓ TÀI KHOẢN ===
         const user = users[0];
-if (type === 'register') {
-    return res.status(409).json({ message: 'Tài khoản Google này đã tồn tại. Vui lòng chuyển sang Đăng nhập.' });
-}
+
         if (user.status === 'pending') {
             return res.status(403).json({ message: 'Tài khoản đang chờ Admin duyệt.' });
         }
@@ -228,10 +226,8 @@ app.post('/api/register', async (req, res) => {
     try {
         // Kiểm tra email trùng
         const [existing] = await db.promise().query('SELECT id FROM users WHERE email = ?', [email]);
-   // Nếu tìm thấy email trong DB -> Trả về lỗi 409 kèm tin nhắn chi tiết
-if (existing.length > 0) {
-    return res.status(409).json({ message: 'Tài khoản email này đã tồn tại. Vui lòng đăng nhập.' });
-}
+        if (existing.length > 0) return res.status(409).json({ message: 'Email đã tồn tại.' });
+
         // Mã hóa mật khẩu
         const hashedPassword = await bcrypt.hash(password, 10);
         
