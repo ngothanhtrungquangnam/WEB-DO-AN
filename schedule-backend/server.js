@@ -189,7 +189,9 @@ app.post('/api/auth/google', async (req, res) => {
 
         // === TRƯỜNG HỢP 2: ĐÃ CÓ TÀI KHOẢN ===
         const user = users[0];
-
+if (type === 'register') {
+    return res.status(409).json({ message: 'Tài khoản Google này đã tồn tại. Vui lòng chuyển sang Đăng nhập.' });
+}
         if (user.status === 'pending') {
             return res.status(403).json({ message: 'Tài khoản đang chờ Admin duyệt.' });
         }

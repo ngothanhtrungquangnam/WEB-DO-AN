@@ -38,39 +38,43 @@ const RegisterPage = () => {
     };
 
 
-    const handleGoogleSuccess = (credentialResponse) => {
-        setLoading(true);
+ const handleGoogleSuccess = (credentialResponse) => {
+    setLoading(true);
 
-        // 👇 THÊM type: 'register'
-        axios.post(`${BASE_API_URL}/auth/google`, { 
-            token: credentialResponse.credential,
-            type: 'register' 
-        })
-        .then(res => {
-            // Nếu là đăng ký mới (201) HOẶC người cũ nhưng đang pending
-            if (res.status === 201 || (res.data && res.data.status === 'pending')) {
-                setPendingMessage('Tài khoản Google đã được tạo và đang chờ Admin duyệt.');
-                setIsSuccessModalVisible(true);
-            } 
-            // Nếu người cũ đã Active -> Vào luôn
-            else if (res.data.token) {
-                message.success('Tài khoản đã tồn tại. Đang đăng nhập...');
-                localStorage.setItem('userToken', res.data.token);
-                localStorage.setItem('userData', JSON.stringify(res.data.user));
-                navigate('/');
-            }
-        })
-        .catch(err => {
-            // Nếu bị 403 (Pending) cũng hiện modal
-            if (err.response && err.response.status === 403) {
-                setIsSuccessModalVisible(true);
-            } else {
-                message.error('Lỗi: ' + (err.response?.data?.message || err.message));
-            }
-        })
-        .finally(() => setLoading(false));
-    };
-   
+    axios.post(`${BASE_API_URL}/auth/google`, { 
+        token: credentialResponse.credential,
+        type: 'register' 
+    })
+    .then(res => {
+        // Chỉ xử lý trường hợp Đăng ký mới thành công (hoặc đang pending)
+        if (res.status === 201 || (res.data && res.data.status === 'pending')) {
+            setPendingMessage('Tài khoản Google đã được tạo và đang chờ Admin duyệt.');
+            setIsSuccessModalVisible(true);
+        } 
+        
+        // ❌ XÓA HOẶC COMMENT ĐOẠN ELSE IF TỰ ĐĂNG NHẬP NÀY ĐI
+        /* else if (res.data.token) {
+            message.success('Tài khoản đã tồn tại. Đang đăng nhập...');
+            ...
+            navigate('/');
+        } 
+        */
+    })
+    .catch(err => {
+        // Backend trả về 409 (Tài khoản đã tồn tại) -> Nó sẽ chui vào đây
+        
+        // Nếu là lỗi 403 (Đang chờ duyệt) -> Hiện modal
+        if (err.response && err.response.status === 403) {
+             setIsSuccessModalVisible(true);
+        } 
+        // Các lỗi khác (bao gồm 409 Conflict - Đã tồn tại) -> Hiện thông báo đỏ
+        else {
+             // Dòng này sẽ hiện: "Lỗi: Tài khoản Google này đã tồn tại..."
+             message.error(err.response?.data?.message || 'Đăng ký thất bại');
+        }
+    })
+    .finally(() => setLoading(false));
+};
 
     const handleCloseSuccessModal = () => {
         setIsSuccessModalVisible(false); 
