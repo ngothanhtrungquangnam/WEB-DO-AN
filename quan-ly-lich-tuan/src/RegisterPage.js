@@ -42,9 +42,8 @@ const onFinish = (values) => {
         .finally(() => setLoading(false)); // Đảm bảo luôn tắt loading
 };
 
-// === ĐĂNG KÝ GOOGLE ===
 const handleGoogleSuccess = (credentialResponse) => {
-    setLoading(true);
+    setLoading(true); // Bắt đầu xoay
 
     axios.post(`${BASE_API_URL}/auth/google`, { 
         token: credentialResponse.credential,
@@ -58,15 +57,18 @@ const handleGoogleSuccess = (credentialResponse) => {
     })
     .catch(err => {
         console.log("Dữ liệu lỗi từ Azure trả về:", err.response);
-        const errorMessage = err.response?.data?.message || "Lỗi kết nối xác thực Google";
+        // Lấy message từ backend trả về
+        const msg = err.response?.data?.message || "Lỗi xác thực Google";
         
-        Modal.warning({
-            title: 'Thông báo hệ thống',
-            content: errorMessage,
+        // Dùng Modal thay cho alert để đồng bộ với giao diện Ant Design
+        Modal.error({
+            title: 'Thông báo',
+            content: msg,
+            centered: true
         });
     })
     .finally(() => {
-        setLoading(false); // QUAN TRỌNG: Phải có dòng này để nút ngừng xoay
+        setLoading(false); // ✅ QUAN TRỌNG: Dòng này giúp nút dừng xoay dù thành công hay lỗi
     });
 };
     const handleCloseSuccessModal = () => {
