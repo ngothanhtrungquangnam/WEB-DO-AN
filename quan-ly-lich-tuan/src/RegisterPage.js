@@ -20,25 +20,30 @@ const RegisterPage = () => {
     const navigate = useNavigate();
 
     // === ĐĂNG KÝ THỦ CÔNG ===
-    const onFinish = (values) => {
-        setLoading(true);
-        const { confirmPassword, ...dataToSend } = values;
-        dataToSend.hostName = dataToSend.fullName;
+const onFinish = (values) => {
+    setLoading(true);
+    const { confirmPassword, ...dataToSend } = values;
+    dataToSend.hostName = dataToSend.fullName;
 
-        axios.post(`${BASE_API_URL}/register`, dataToSend)
-            .then(res => {
-                setPendingMessage('Tài khoản của bạn đã được tạo thành công và đang chờ Admin duyệt.');
-                setIsSuccessModalVisible(true);
-            })
-            .catch(error => {
-                const errorMessage = error.response?.data?.message || 'Đăng ký thất bại.';
-                message.error(errorMessage);
-            })
-            .finally(() => setLoading(false));
-    };
+    axios.post(`${BASE_API_URL}/register`, dataToSend)
+        .then(res => {
+            setPendingMessage('Tài khoản của bạn đã được tạo thành công và đang chờ Admin duyệt.');
+            setIsSuccessModalVisible(true);
+        })
+        .catch(error => {
+            // Lấy message từ Backend trả về
+            const errorMessage = error.response?.data?.message || 'Đăng ký thất bại.';
+            // Sử dụng Modal để đảm bảo người dùng nhìn thấy (không bị trôi mất như message.error)
+            Modal.error({
+                title: 'Lỗi đăng ký',
+                content: errorMessage,
+            });
+        })
+        .finally(() => setLoading(false)); // Đảm bảo luôn tắt loading
+};
 
-
- const handleGoogleSuccess = (credentialResponse) => {
+// === ĐĂNG KÝ GOOGLE ===
+const handleGoogleSuccess = (credentialResponse) => {
     setLoading(true);
 
     axios.post(`${BASE_API_URL}/auth/google`, { 
@@ -46,41 +51,24 @@ const RegisterPage = () => {
         type: 'register' 
     })
     .then(res => {
-        // Chỉ xử lý trường hợp Đăng ký mới thành công (hoặc đang pending)
         if (res.status === 201 || (res.data && res.data.status === 'pending')) {
             setPendingMessage('Tài khoản Google đã được tạo và đang chờ Admin duyệt.');
             setIsSuccessModalVisible(true);
         } 
-        
-        // ❌ XÓA HOẶC COMMENT ĐOẠN ELSE IF TỰ ĐĂNG NHẬP NÀY ĐI
-        /* else if (res.data.token) {
-            message.success('Tài khoản đã tồn tại. Đang đăng nhập...');
-            ...
-            navigate('/');
-        } 
-        */
     })
-// Trong file RegisterPage.js
-.catch(err => {
-    console.log("Dữ liệu lỗi từ Azure trả về:", err.response);
-
-    // 1. Kiểm tra nếu là lỗi tài khoản đã tồn tại (409)
-    if (err.response && err.response.status === 409) {
-        // Dùng alert() để kiểm tra nhanh nhất (vì alert luôn hiện lên trên cùng)
-        alert("THÔNG BÁO: " + (err.response.data.message || "Tài khoản này đã tồn tại!"));
+    .catch(err => {
+        console.log("Dữ liệu lỗi từ Azure trả về:", err.response);
+        const errorMessage = err.response?.data?.message || "Lỗi kết nối xác thực Google";
         
-        // Hoặc dùng Modal nếu muốn đẹp
-        /* Modal.error({
-            title: 'Lỗi đăng ký',
-            content: err.response.data.message,
-        }); */
-    } 
-    // 2. Các lỗi khác
-    else {
-        alert("Lỗi hệ thống: " + (err.response?.data?.message || "Không thể kết nối Server"));
-    }
-})
- }
+        Modal.warning({
+            title: 'Thông báo hệ thống',
+            content: errorMessage,
+        });
+    })
+    .finally(() => {
+        setLoading(false); // QUAN TRỌNG: Phải có dòng này để nút ngừng xoay
+    });
+};
     const handleCloseSuccessModal = () => {
         setIsSuccessModalVisible(false); 
         navigate('/login'); 
