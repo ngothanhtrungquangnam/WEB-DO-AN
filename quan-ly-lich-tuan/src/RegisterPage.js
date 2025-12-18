@@ -60,22 +60,30 @@ const RegisterPage = () => {
         } 
         */
     })
-    .catch(err => {
-        // Backend trả về 409 (Tài khoản đã tồn tại) -> Nó sẽ chui vào đây
-        
-        // Nếu là lỗi 403 (Đang chờ duyệt) -> Hiện modal
-        if (err.response && err.response.status === 403) {
-             setIsSuccessModalVisible(true);
-        } 
-        // Các lỗi khác (bao gồm 409 Conflict - Đã tồn tại) -> Hiện thông báo đỏ
-        else {
-             // Dòng này sẽ hiện: "Lỗi: Tài khoản Google này đã tồn tại..."
-             message.error(err.response?.data?.message || 'Đăng ký thất bại');
-        }
-    })
-    .finally(() => setLoading(false));
-};
+ // Trong file RegisterPage.js
+.catch(err => {
+    console.log("Dữ liệu lỗi từ Server:", err.response); // Để bạn kiểm tra trong F12
 
+    // Kiểm tra lỗi 409 (Tài khoản đã tồn tại)
+    if (err.response && err.response.status === 409) {
+        // Thay vì dùng message.error, ta dùng Modal.error để chắc chắn nó hiện ra
+        Modal.error({
+            title: 'Tài khoản đã tồn tại',
+            content: err.response.data.message || 'Tài khoản Google này đã được đăng ký. Vui lòng chuyển sang trang Đăng nhập.',
+            okText: 'Tôi đã hiểu',
+            centered: true
+        });
+    } 
+    // Nếu là lỗi 403 (Đang chờ duyệt)
+    else if (err.response && err.response.status === 403) {
+        setIsSuccessModalVisible(true);
+    } 
+    // Các lỗi khác
+    else {
+        message.error(err.response?.data?.message || 'Có lỗi xảy ra khi đăng ký.');
+    }
+})
+ }
     const handleCloseSuccessModal = () => {
         setIsSuccessModalVisible(false); 
         navigate('/login'); 
