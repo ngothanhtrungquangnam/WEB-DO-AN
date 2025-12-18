@@ -226,8 +226,7 @@ app.post('/api/register', async (req, res) => {
     try {
         // Kiểm tra email trùng
         const [existing] = await db.promise().query('SELECT id FROM users WHERE email = ?', [email]);
-        if (existing.length > 0) return res.status(409).json({ message: 'Email đã tồn tại.' });
-
+    if (existing.length > 0) return res.status(409).json({ message: 'Tài khoản đã tồn tại. Vui lòng sử dụng email khác hoặc đăng nhập.' });
         // Mã hóa mật khẩu
         const hashedPassword = await bcrypt.hash(password, 10);
         
