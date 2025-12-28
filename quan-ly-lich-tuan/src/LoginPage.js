@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Form, Input, Button, message, Modal, Alert, Divider } from 'antd'; 
 import { useNavigate, Link } from 'react-router-dom'; 
-import bannerImg from './banner.png';
+
 // 👇 Import thêm icon dấu chấm than
 import { LockOutlined, MailOutlined, UserOutlined, ExclamationCircleOutlined } from '@ant-design/icons'; 
 import { GoogleOAuthProvider, GoogleLogin } from '@react-oauth/google';
@@ -9,7 +9,7 @@ import axios from 'axios';
 
 import './Auth.css'; 
 
-import logo2 from './dtvt.jpg'; 
+
 
 const API_URL_LOGIN = 'https://lich-tuan-api-bcg9d2aqfgbwbbcv.eastasia-01.azurewebsites.net/api/login'; 
 const BASE_API_URL = 'https://lich-tuan-api-bcg9d2aqfgbwbbcv.eastasia-01.azurewebsites.net/api';
@@ -125,15 +125,14 @@ const LoginPage = () => {
         <GoogleOAuthProvider clientId={GOOGLE_CLIENT_ID}>
             <div className="auth-container">
                 <div className="auth-card">
-                    <div className="auth-header">
-                        <div className="auth-logo-container">
-                            <img src={{bannerImg}} alt="Logo Trường" className="auth-logo" />
-                            <img src={logo2} alt="Logo Phụ" className="auth-logo" />
-                        </div>
-                        <h2 className="auth-title">ĐĂNG NHẬP</h2>
-                        <p className="auth-subtitle">Hệ thống Quản lý Lịch Tuần</p>
-                    </div>
-
+              <div className="auth-header">
+    <div className="auth-logo-container" style={{ display: 'flex', justifyContent: 'center', marginBottom: '10px' }}>
+        {/* Dùng Icon khóa cho trang Đăng nhập nhìn rất chuyên nghiệp */}
+        <LockOutlined style={{ fontSize: '40px', color: '#1890ff', padding: '10px', background: '#e6f7ff', borderRadius: '50%' }} />
+    </div>
+    <h2 className="auth-title">ĐĂNG NHẬP</h2>
+    <p className="auth-subtitle">Hệ thống Quản lý Lịch Tuần</p>
+</div>
                     {/* FORM ĐĂNG NHẬP */}
                     <Form
                         name="login_form"

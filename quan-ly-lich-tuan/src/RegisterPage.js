@@ -4,11 +4,11 @@ import { useNavigate } from 'react-router-dom';
 import { UserOutlined, LockOutlined, MailOutlined } from '@ant-design/icons'; 
 import axios from 'axios';
 import { GoogleOAuthProvider, GoogleLogin } from '@react-oauth/google';
-import bannerImg from './banner.png';
+
 
 import './Auth.css';
 
-import logo2 from './dtvt.jpg';
+
 
 const BASE_API_URL = 'https://lich-tuan-api-bcg9d2aqfgbwbbcv.eastasia-01.azurewebsites.net/api';
 const GOOGLE_CLIENT_ID = "494075819114-mhvbrg2rjeqvlltsc2herhpuovd1asv5.apps.googleusercontent.com";
@@ -82,15 +82,14 @@ const RegisterPage = () => {
         <GoogleOAuthProvider clientId={GOOGLE_CLIENT_ID}>
             <div className="auth-container">
                 <div className="auth-card">
-                    <div className="auth-header">
-                        <div className="auth-logo-container">
-                            <img src={{bannerImg}} alt="Logo" className="auth-logo" />
-                            <img src={logo2} alt="Logo 2" className="auth-logo" />
-                        </div>
-                        <h2 className="auth-title">ĐĂNG KÝ TÀI KHOẢN</h2>
-                        <p className="auth-subtitle">Tạo tài khoản mới để sử dụng hệ thống</p>
-                    </div>
-
+                  <div className="auth-header">
+    <div className="auth-logo-container" style={{ display: 'flex', justifyContent: 'center', marginBottom: '10px' }}>
+        {/* Sử dụng Icon mặc định thay cho Logo để không bị lỗi file ảnh */}
+        <UserOutlined style={{ fontSize: '40px', color: '#1890ff', padding: '10px', background: '#e6f7ff', borderRadius: '50%' }} />
+    </div>
+    <h2 className="auth-title">ĐĂNG KÝ TÀI KHOẢN</h2>
+    <p className="auth-subtitle">Tạo tài khoản mới để sử dụng hệ thống</p>
+</div>
                     {/* --- FORM NHẬP LIỆU (ĐƯA LÊN TRÊN CHO KHOA HỌC) --- */}
                     <Form
                         name="register"
