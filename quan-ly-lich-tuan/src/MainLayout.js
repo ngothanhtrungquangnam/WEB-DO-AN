@@ -291,63 +291,76 @@ const MainLayout = () => {
         </Sider>
 
 <Layout>
-          <Header style={{ 
-              // THAY ĐỔI TẠI ĐÂY 👇
-              backgroundImage: `url(${bannerImg})`, 
-              backgroundSize: 'cover',
-              backgroundPosition: 'center',
-              display: 'flex', 
-              alignItems: 'center', 
-              color: '#fff', // Đổi chữ sang trắng để nổi bật trên nền ảnh
-              justifyContent: 'space-between', 
-              padding: '0 24px', 
-              height: 120, // Tăng chiều cao để thấy rõ banner (tùy chỉnh từ 80 - 150)
-              position: 'relative',
-              borderBottom: '2px solid #1890ff'
-          }}>
-                {/* 👇 FIX: Hiện nút khi sidebar ĐANG ĐÓNG (collapsed = true) */}
-                {collapsed && (
-                    <Button
-                        type="text"
-                        icon={<MenuOutlined />}
-                        onClick={() => setCollapsed(!collapsed)} 
-                        style={{ 
-                            color: '#fff', // Đổi màu icon sang trắng
-                            fontSize: '18px',
-                            backgroundColor: 'rgba(0,0,0,0.3)' // Thêm nền mờ cho nút dễ nhìn
-                        }}
-                    />
-                )}
-                
-                {/* Lớp phủ mờ nếu ảnh quá sáng, giúp chữ dễ đọc hơn */}
-                <div style={{
-                    position: 'absolute',
-                    top: 0, left: 0, right: 0, bottom: 0,
-                    backgroundColor: 'rgba(0,0,0,0.2)', // Phủ một lớp đen mờ 20%
-                    zIndex: 0
-                }} />
+          
+<Header style={{ 
+    backgroundImage: `url(${bannerImg})`, // Đảm bảo biến bannerImg đã được import đúng
+    backgroundSize: 'cover', // Giúp ảnh phủ kín toàn bộ không gian header
+    backgroundPosition: 'center center', // Căn giữa ảnh để lấy phần nội dung chính
+    backgroundRepeat: 'no-repeat',
+    display: 'flex', 
+    alignItems: 'center', 
+    justifyContent: 'space-between', // Đẩy nút menu sang trái, thông tin user sang phải
+    padding: '0 24px', 
+    height: 180, // 👈 TĂNG CHIỀU CAO TẠI ĐÂY (ví dụ: 180, 200, 220)
+    position: 'relative',
+    borderBottom: 'none', // Loại bỏ viền xanh nếu không cần thiết nữa
+    boxShadow: '0 4px 6px rgba(0,0,0,0.1)' // Thêm chút bóng đổ cho đẹp (tùy chọn)
+}}>
+    {/* Lớp phủ mờ nhẹ để chữ bên phải dễ đọc hơn trên nền ảnh */}
+    <div style={{
+        position: 'absolute',
+        top: 0, left: 0, right: 0, bottom: 0,
+        backgroundColor: 'rgba(0,0,0,0.15)', // Lớp phủ đen mờ 15%
+        zIndex: 0
+    }} />
 
-                <Space size="middle" style={{ marginLeft: 'auto', zIndex: 1 }}>
-                    {user && (
-                        <Text strong style={{ 
-                            color: '#fff', 
-                            textShadow: '2px 2px 4px rgba(0,0,0,0.8)' // Đổ bóng cho chữ dễ đọc
-                        }}>
-                            Xin chào, {user.fullName || user.email} ({user.role})
-                        </Text>
-                    )}
-                    <Button 
-                        type="primary" 
-                        danger 
-                        onClick={handleLogout} 
-                        icon={<LogoutOutlined />}
-                        style={{ boxShadow: '0 2px 4px rgba(0,0,0,0.3)' }}
-                    >
-                        Đăng xuất
-                    </Button>
-                </Space>
-          </Header>
+    {/* Nút Menu (chỉ hiện khi sidebar bị thu gọn) */}
+    <div style={{ zIndex: 1 }}>
+        {collapsed && (
+            <Button
+                type="text"
+                icon={<MenuOutlined />}
+                onClick={() => setCollapsed(!collapsed)} 
+                style={{ 
+                    color: '#fff', 
+                    fontSize: '20px',
+                    backgroundColor: 'rgba(0,0,0,0.3)', // Nền mờ giúp nút dễ nhìn
+                    borderRadius: '4px',
+                    width: '40px', height: '40px', display: 'flex', alignItems: 'center', justifyContent: 'center'
+                }}
+            />
+        )}
+    </div>
 
+    {/* Phần thông tin User và nút Đăng xuất bên phải */}
+    <Space size="middle" style={{ marginLeft: 'auto', zIndex: 1, alignItems: 'center' }}>
+        {user && (
+            <Text strong style={{ 
+                color: '#fff', 
+                fontSize: '16px',
+                textShadow: '2px 2px 4px rgba(0,0,0,0.8)', // Đổ bóng chữ
+                marginRight: '10px'
+            }}>
+                Xin chào, {user.fullName || user.email} ({user.role})
+            </Text>
+        )}
+        <Button 
+            type="primary" 
+            danger 
+            onClick={handleLogout} 
+            icon={<LogoutOutlined />}
+            style={{ 
+                boxShadow: '0 2px 4px rgba(0,0,0,0.3)',
+                fontWeight: 'bold',
+                borderRadius: '6px',
+                height: '36px',
+                padding: '0 20px'
+            }}
+        >
+            Đăng xuất
+        </Button>
+    </Space>
+</Header>
           <Content style={{ 
               padding: 24, 
               margin: '16px', 
