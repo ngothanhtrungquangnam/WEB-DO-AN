@@ -3,7 +3,7 @@ import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom';
 import { Layout, Menu, Button, Space, Typography, message, Badge } from 'antd';
 import axios from 'axios';
 import './CustomStyles.css';
-import bannerImg from './banner.jpg';
+import bannerImg from './banner.png';
 import {
   UserOutlined,
   CalendarOutlined,
