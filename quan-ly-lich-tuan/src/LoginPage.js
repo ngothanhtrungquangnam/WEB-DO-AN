@@ -7,7 +7,7 @@ import { GoogleOAuthProvider, GoogleLogin } from '@react-oauth/google';
 import axios from 'axios'; 
 
 import './Auth.css'; 
-import dutLogo from './dut.jpg'; 
+
 import logo2 from './dtvt.jpg'; 
 
 const API_URL_LOGIN = 'https://lich-tuan-api-bcg9d2aqfgbwbbcv.eastasia-01.azurewebsites.net/api/login'; 
