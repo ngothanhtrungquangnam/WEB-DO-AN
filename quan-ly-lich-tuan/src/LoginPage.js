@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Form, Input, Button, message, Modal, Alert, Divider } from 'antd'; 
 import { useNavigate, Link } from 'react-router-dom'; 
+import bannerImg from './banner.png';
 // 👇 Import thêm icon dấu chấm than
 import { LockOutlined, MailOutlined, UserOutlined, ExclamationCircleOutlined } from '@ant-design/icons'; 
 import { GoogleOAuthProvider, GoogleLogin } from '@react-oauth/google';
@@ -126,7 +127,7 @@ const LoginPage = () => {
                 <div className="auth-card">
                     <div className="auth-header">
                         <div className="auth-logo-container">
-                            <img src={dutLogo} alt="Logo Trường" className="auth-logo" />
+                            <img src={{bannerImg}} alt="Logo Trường" className="auth-logo" />
                             <img src={logo2} alt="Logo Phụ" className="auth-logo" />
                         </div>
                         <h2 className="auth-title">ĐĂNG NHẬP</h2>

@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { UserOutlined, LockOutlined, MailOutlined } from '@ant-design/icons'; 
 import axios from 'axios';
 import { GoogleOAuthProvider, GoogleLogin } from '@react-oauth/google';
+import bannerImg from './banner.png';
 
 import './Auth.css';
 
@@ -83,7 +84,7 @@ const RegisterPage = () => {
                 <div className="auth-card">
                     <div className="auth-header">
                         <div className="auth-logo-container">
-                            <img src={dutLogo} alt="Logo" className="auth-logo" />
+                            <img src={{bannerImg}} alt="Logo" className="auth-logo" />
                             <img src={logo2} alt="Logo 2" className="auth-logo" />
                         </div>
                         <h2 className="auth-title">ĐĂNG KÝ TÀI KHOẢN</h2>
