@@ -19,7 +19,7 @@ import {
   TableOutlined,
   SendOutlined
 } from '@ant-design/icons';
-import dutLogo from './dut.jpg'; 
+
 
 const { Header, Content, Sider } = Layout;
 const { Text } = Typography;
@@ -239,46 +239,37 @@ const MainLayout = () => {
               setCollapsed(broken); // Tự động thu gọn khi màn hình nhỏ
           }}
         >
-            {/* 👇 FIX: Hiện nút khi sidebar ĐANG MỞ (collapsed = false) */}
-            <div style={{ 
-                display: 'flex', 
-                alignItems: 'center', 
-                padding: '16px', 
-                backgroundColor: '#1890ff', 
-                height: 64,
-                justifyContent: collapsed ? 'center' : 'flex-start' // Căn giữa khi thu gọn
-            }}>
-                {!collapsed && (
-                    <Button
-                        type="text"
-                        icon={<MenuOutlined />}
-                        onClick={() => setCollapsed(!collapsed)} 
-                        style={{ 
-                            color: '#fff', 
-                            fontSize: '18px', 
-                            marginRight: '16px'
-                        }}
-                    />
-                )}
-                <img 
-                    src={dutLogo} 
-                    alt="DUT Logo" 
-                    style={{ 
-                        height: '40px', 
-                        marginRight: collapsed ? 0 : '10px' 
-                    }} 
-                />
-                {!collapsed && (
-                    <span style={{ 
-                        fontSize: '28px', 
-                        fontWeight: 'bold', 
-                        color: '#fff', 
-                        textShadow: '1px 1px 2px rgba(0, 0, 0, 0.4)' 
-                    }}>
-                        DUT
-                    </span>
-                )}
-            </div>
+        {/* 👇 ĐÂY LÀ ĐOẠN BẠN CẦN SỬA (BƯỚC 2) 👇 */}
+  <div style={{ 
+      display: 'flex', 
+      alignItems: 'center', 
+      padding: '0 16px', 
+      backgroundColor: 'transparent', // Đổi từ xanh #1890ff sang suốt để không bị lệch tông với banner
+      height: 64,
+      justifyContent: collapsed ? 'center' : 'flex-start'
+  }}>
+      {!collapsed && (
+          <Button
+              type="text"
+              icon={<MenuOutlined />}
+              onClick={() => setCollapsed(!collapsed)} 
+              style={{ 
+                  color: '#fff', 
+                  fontSize: '20px',
+                  backgroundColor: 'rgba(255, 255, 255, 0.15)', // Tạo nền mờ nhẹ cho nút menu
+                  borderRadius: '4px',
+                  width: '40px', 
+                  height: '40px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center'
+              }}
+          />
+      )}
+      {/* BẠN ĐÃ XÓA dutLogo VÀ CHỮ DUT Ở ĐÂY LÀ ĐÚNG. 
+          MÌNH CHỈ CHỈNH LẠI MÀU NỀN CHO TRONG SUỐT ĐỂ NÓ ĐẸP HƠN. 
+      */}
+  </div>
             
           <Menu
             theme="dark"
@@ -292,19 +283,19 @@ const MainLayout = () => {
 
 <Layout>
           
+
 <Header style={{ 
-    backgroundImage: `url(${bannerImg})`, // Đảm bảo biến bannerImg đã được import đúng
-    backgroundSize: 'cover', // Giúp ảnh phủ kín toàn bộ không gian header
-    backgroundPosition: 'center center', // Căn giữa ảnh để lấy phần nội dung chính
-    backgroundRepeat: 'no-repeat',
+    backgroundImage: `url(${bannerImg})`,
+    backgroundSize: 'cover',
+    backgroundPosition: 'center',
     display: 'flex', 
     alignItems: 'center', 
-    justifyContent: 'space-between', // Đẩy nút menu sang trái, thông tin user sang phải
+    color: '#fff',
+    justifyContent: 'space-between', 
     padding: '0 24px', 
-    height: 180, // 👈 TĂNG CHIỀU CAO TẠI ĐÂY (ví dụ: 180, 200, 220)
+    height: 180, // 👈 QUAN TRỌNG: Tăng chiều cao lên (ví dụ: 180px)
     position: 'relative',
-    borderBottom: 'none', // Loại bỏ viền xanh nếu không cần thiết nữa
-    boxShadow: '0 4px 6px rgba(0,0,0,0.1)' // Thêm chút bóng đổ cho đẹp (tùy chọn)
+    borderBottom: 'none'
 }}>
     {/* Lớp phủ mờ nhẹ để chữ bên phải dễ đọc hơn trên nền ảnh */}
     <div style={{
